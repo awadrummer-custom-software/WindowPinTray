@@ -1,4 +1,5 @@
 using System;
+using System.Windows.Threading;
 using WindowPinTray.Interop;
 using WindowPinTray.Models;
 using WindowPinTray.UI;
@@ -14,6 +15,9 @@ internal sealed class WindowPinController : IDisposable
     private DateTime _visibilityLockUntil = DateTime.MinValue;
     private static readonly TimeSpan SyncCooldown = TimeSpan.FromMilliseconds(150);
     private static readonly TimeSpan VisibilityLockDuration = TimeSpan.FromMilliseconds(500);
+    private static readonly TimeSpan PositionUpdateThrottle = TimeSpan.FromMilliseconds(33);
+    private DateTime _lastPositionUpdate = DateTime.MinValue;
+    private DispatcherTimer? _positionUpdateTimer;
 
     public bool IsPinned => _isPinned;
     public bool HasLoggedInitialState { get; set; }
@@ -36,12 +40,56 @@ internal sealed class WindowPinController : IDisposable
 
     public void UpdatePosition()
     {
+        _positionUpdateTimer?.Stop();
+        _positionUpdateTimer = null;
+        UpdatePositionNow();
+    }
+
+    public void RequestPositionUpdate()
+    {
+        var now = DateTime.UtcNow;
+        var elapsed = now - _lastPositionUpdate;
+        if (elapsed >= PositionUpdateThrottle)
+        {
+            UpdatePositionNow();
+            return;
+        }
+
+        _positionUpdateTimer ??= CreatePositionUpdateTimer();
+
+        var remaining = PositionUpdateThrottle - elapsed;
+        if (remaining < TimeSpan.FromMilliseconds(1))
+        {
+            remaining = TimeSpan.FromMilliseconds(1);
+        }
+
+        _positionUpdateTimer.Interval = remaining;
+        if (!_positionUpdateTimer.IsEnabled)
+        {
+            _positionUpdateTimer.Start();
+        }
+    }
+
+    private DispatcherTimer CreatePositionUpdateTimer()
+    {
+        var timer = new DispatcherTimer(DispatcherPriority.Background, _overlayWindow.Dispatcher);
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            UpdatePositionNow();
+        };
+        return timer;
+    }
+
+    private void UpdatePositionNow()
+    {
         if (!NativeMethods.GetWindowRect(_targetHwnd, out var rect))
         {
             return;
         }
 
         _overlayWindow.UpdatePosition(rect);
+        _lastPositionUpdate = DateTime.UtcNow;
     }
 
     public void ApplyVisibility(bool shouldShow)

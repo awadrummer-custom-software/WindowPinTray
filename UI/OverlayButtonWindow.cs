@@ -18,6 +18,7 @@ internal sealed class OverlayButtonWindow : Window
     private readonly System.Windows.Controls.Button _button;
     private readonly System.Windows.Controls.Image _image;
     private IntPtr _windowHandle;
+    private bool _ownerSet;
 
     private ImageSource? _defaultImage;
     private ImageSource? _hoverImage;
@@ -36,6 +37,8 @@ internal sealed class OverlayButtonWindow : Window
     private int _lastHeightPixels;
     private DateTime _lastZOrderUpdate = DateTime.MinValue;
     private static readonly TimeSpan ZOrderThrottle = TimeSpan.FromMilliseconds(500);
+    private double _lastScaleX = 1.0;
+    private double _lastScaleY = 1.0;
 
     public OverlayButtonWindow(IntPtr targetHwnd, AppSettings settings)
     {
@@ -48,6 +51,7 @@ internal sealed class OverlayButtonWindow : Window
         ShowInTaskbar = false;
         WindowStyle = WindowStyle.None;
         Focusable = false;
+        ShowActivated = false;
 
         _image = new System.Windows.Controls.Image
         {
@@ -151,10 +155,24 @@ internal sealed class OverlayButtonWindow : Window
         var widthDip = buttonWidthPixels / scaleX;
         var heightDip = buttonHeightPixels / scaleY;
 
-        _button.Width = widthDip;
-        _button.Height = heightDip;
-        Width = widthDip;
-        Height = heightDip;
+        var dpiOrSizeChanged =
+            buttonWidthPixels != _lastWidthPixels
+            || buttonHeightPixels != _lastHeightPixels
+            || !AreClose(scaleX, _lastScaleX)
+            || !AreClose(scaleY, _lastScaleY);
+
+        if (dpiOrSizeChanged)
+        {
+            _button.Width = widthDip;
+            _button.Height = heightDip;
+            Width = widthDip;
+            Height = heightDip;
+
+            _lastWidthPixels = buttonWidthPixels;
+            _lastHeightPixels = buttonHeightPixels;
+            _lastScaleX = scaleX;
+            _lastScaleY = scaleY;
+        }
 
         // Only position if we have valid bounds
         if (windowWidth <= 0 || windowHeight <= 0)
@@ -177,56 +195,38 @@ internal sealed class OverlayButtonWindow : Window
         var leftDip = leftPixels / scaleX;
         var topDip = topPixels / scaleY;
 
-        Left = leftDip;
-        Top = topDip;
+        var positionChanged = leftPixels != _lastLeftPixels || topPixels != _lastTopPixels;
+
+        // Use WPF properties for movement to keep WPF's window state in sync.
+        if (positionChanged)
+        {
+            Left = leftDip;
+            Top = topDip;
+            _lastLeftPixels = leftPixels;
+            _lastTopPixels = topPixels;
+        }
 
         if (_windowHandle != IntPtr.Zero)
         {
-            var positionChanged = leftPixels != _lastLeftPixels ||
-                                  topPixels != _lastTopPixels ||
-                                  buttonWidthPixels != _lastWidthPixels ||
-                                  buttonHeightPixels != _lastHeightPixels;
-
             var now = DateTime.UtcNow;
-            var zOrderDue = now - _lastZOrderUpdate >= ZOrderThrottle;
+            var zOrderDue = !_ownerSet && now - _lastZOrderUpdate >= ZOrderThrottle;
 
-            // Only call SetWindowPos if position changed OR z-order update is due
-            if (positionChanged || zOrderDue)
+            // Only adjust z-order when needed. Movement is handled via Left/Top above.
+            if (zOrderDue)
             {
                 var windowInFront = NativeMethods.GetWindow(_targetHwnd, NativeMethods.GW_HWNDPREV);
                 var insertAfter = windowInFront != IntPtr.Zero ? windowInFront : _targetHwnd;
 
-                var flags = NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE
+                var flags = NativeMethods.SetWindowPosFlags.SWP_NOMOVE
+                            | NativeMethods.SetWindowPosFlags.SWP_NOSIZE
+                            | NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE
                             | NativeMethods.SetWindowPosFlags.SWP_NOOWNERZORDER
                             | NativeMethods.SetWindowPosFlags.SWP_NOSENDCHANGING
                             | NativeMethods.SetWindowPosFlags.SWP_NOREDRAW
                             | NativeMethods.SetWindowPosFlags.SWP_DEFERERASE
                             | NativeMethods.SetWindowPosFlags.SWP_ASYNCWINDOWPOS;
 
-                // If only z-order update (no position change), skip move/size
-                if (!positionChanged)
-                {
-                    flags |= NativeMethods.SetWindowPosFlags.SWP_NOMOVE
-                           | NativeMethods.SetWindowPosFlags.SWP_NOSIZE;
-                }
-
-                NativeMethods.SetWindowPos(
-                    _windowHandle,
-                    insertAfter,
-                    leftPixels,
-                    topPixels,
-                    buttonWidthPixels,
-                    buttonHeightPixels,
-                    flags);
-
-                if (positionChanged)
-                {
-                    _lastLeftPixels = leftPixels;
-                    _lastTopPixels = topPixels;
-                    _lastWidthPixels = buttonWidthPixels;
-                    _lastHeightPixels = buttonHeightPixels;
-                }
-
+                NativeMethods.SetWindowPos(_windowHandle, insertAfter, 0, 0, 0, 0, flags);
                 _lastZOrderUpdate = now;
             }
         }
@@ -291,11 +291,16 @@ internal sealed class OverlayButtonWindow : Window
         {
             var handle = source.Handle;
             _windowHandle = handle;
+
+            TrySetOwnerWindow();
+
             var styles = NativeMethods.GetWindowLong(handle, NativeMethods.GWL_EXSTYLE);
             // Use TOOLWINDOW and NOACTIVATE, but NOT TOPMOST (we manage z-order manually)
             styles |= NativeMethods.WS_EX_TOOLWINDOW | NativeMethods.WS_EX_NOACTIVATE;
             NativeMethods.SetWindowLong(handle, NativeMethods.GWL_EXSTYLE, styles);
             source.AddHook(WndProc);
+
+            ApplyPositionAndSize();
         }
     }
 
@@ -417,5 +422,34 @@ internal sealed class OverlayButtonWindow : Window
 
         var visualDpi = VisualTreeHelper.GetDpi(this);
         return (visualDpi.DpiScaleX, visualDpi.DpiScaleY);
+    }
+
+    private void TrySetOwnerWindow()
+    {
+        if (_ownerSet)
+        {
+            return;
+        }
+
+        try
+        {
+            if (_targetHwnd != IntPtr.Zero && NativeMethods.IsWindow(_targetHwnd))
+            {
+                var helper = new WindowInteropHelper(this)
+                {
+                    Owner = _targetHwnd
+                };
+                _ownerSet = helper.Owner != IntPtr.Zero;
+            }
+        }
+        catch
+        {
+            _ownerSet = false;
+        }
+    }
+
+    private static bool AreClose(double a, double b)
+    {
+        return Math.Abs(a - b) < 0.0001;
     }
 }
