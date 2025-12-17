@@ -5,6 +5,8 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using SharpVectors.Converters;
+using SharpVectors.Renderers.Wpf;
 using WindowPinTray.Interop;
 using WindowPinTray.Models;
 
@@ -20,6 +22,7 @@ internal sealed class OverlayButtonWindow : Window
     private ImageSource? _defaultImage;
     private ImageSource? _hoverImage;
     private ImageSource? _pinnedImage;
+    private ImageSource? _pinnedHoverImage;
 
     private AppSettings _settings;
     private bool _isPinned;
@@ -39,7 +42,7 @@ internal sealed class OverlayButtonWindow : Window
 
         _image = new System.Windows.Controls.Image
         {
-            Stretch = Stretch.Uniform,
+            Stretch = Stretch.Fill,
             VerticalAlignment = System.Windows.VerticalAlignment.Center,
             HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
             SnapsToDevicePixels = true
@@ -178,11 +181,18 @@ internal sealed class OverlayButtonWindow : Window
         _defaultImage = LoadImage(_settings.ButtonImagePath) ?? CreateFallbackImage(System.Windows.Media.Colors.White, System.Windows.Media.Colors.Transparent);
         _hoverImage = LoadImage(_settings.ButtonHoverImagePath) ?? _defaultImage;
         _pinnedImage = LoadImage(_settings.ButtonPinnedImagePath);
+        _pinnedHoverImage = LoadImage(_settings.ButtonPinnedHoverImagePath);
 
+        var highlightColor = ParseColor(_settings.PinnedHighlightColor) ?? System.Windows.Media.Colors.LightSkyBlue;
         if (_pinnedImage is null)
         {
-            var highlightColor = ParseColor(_settings.PinnedHighlightColor) ?? System.Windows.Media.Colors.LightSkyBlue;
             _pinnedImage = CreateFallbackImage(highlightColor, System.Windows.Media.Color.FromArgb(40, 0, 0, 0));
+        }
+
+        if (_pinnedHoverImage is null)
+        {
+            // Use a slightly brighter/saturated version for hover
+            _pinnedHoverImage = _pinnedImage;
         }
     }
 
@@ -201,7 +211,11 @@ internal sealed class OverlayButtonWindow : Window
 
     private void UpdateImageSource()
     {
-        if (_isPinned)
+        if (_isPinned && _isMouseOver)
+        {
+            _image.Source = _pinnedHoverImage ?? _pinnedImage ?? _defaultImage;
+        }
+        else if (_isPinned)
         {
             _image.Source = _pinnedImage ?? _defaultImage;
         }
@@ -249,6 +263,12 @@ internal sealed class OverlayButtonWindow : Window
 
         try
         {
+            var extension = Path.GetExtension(path).ToLowerInvariant();
+            if (extension == ".svg")
+            {
+                return LoadSvgImage(path);
+            }
+
             var image = new BitmapImage();
             image.BeginInit();
             image.CacheOption = BitmapCacheOption.OnLoad;
@@ -261,6 +281,33 @@ internal sealed class OverlayButtonWindow : Window
         {
             return null;
         }
+    }
+
+    private static ImageSource? LoadSvgImage(string path)
+    {
+        try
+        {
+            var settings = new WpfDrawingSettings
+            {
+                IncludeRuntime = true,
+                TextAsGeometry = false
+            };
+
+            var converter = new FileSvgReader(settings);
+            var drawing = converter.Read(path);
+            if (drawing != null)
+            {
+                var drawingImage = new DrawingImage(drawing);
+                drawingImage.Freeze();
+                return drawingImage;
+            }
+        }
+        catch
+        {
+            // Fall through to return null
+        }
+
+        return null;
     }
 
     private static ImageSource CreateFallbackImage(System.Windows.Media.Color strokeColor, System.Windows.Media.Color fillColor)

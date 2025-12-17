@@ -3,10 +3,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Window Pin Settings"
         ResizeMode="CanResizeWithGrip"
-        Width="420"
-        Height="520"
-        MinWidth="400"
-        MinHeight="480"
+        Width="460"
+        Height="580"
+        MinWidth="420"
+        MinHeight="520"
         WindowStartupLocation="CenterScreen"
         Background="#1e1e1e">
     <Window.Resources>
@@ -33,14 +33,13 @@
             <Setter Property="CaretBrush" Value="{StaticResource TextBrush}"/>
         </Style>
         <Style TargetType="Slider">
-            <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
         <Style TargetType="Button">
             <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
             <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
             <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
-            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Padding" Value="8,4"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -61,117 +60,181 @@
         <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
             <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#1a86d9"/>
-                </Trigger>
-            </Style.Triggers>
         </Style>
     </Window.Resources>
 
-    <Grid Margin="16,12">
+    <Grid Margin="16">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <StackPanel>
-            <!-- Startup -->
-            <CheckBox x:Name="StartWithWindowsCheckBox" Content="Start with Windows" Margin="0,0,0,12"/>
-
-            <!-- Size Section -->
-            <TextBlock Text="SIZE" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6"/>
-            <Grid Margin="0,0,0,6">
+        <!-- Size Section -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="SIZE" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+            <Grid Margin="0,0,0,4">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="55"/>
+                    <ColumnDefinition Width="50"/>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="40"/>
+                    <ColumnDefinition Width="45"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="Width" VerticalAlignment="Center"/>
-                <Slider x:Name="WidthSlider" Grid.Column="1" Minimum="1" Maximum="256" IsSnapToTickEnabled="True" TickFrequency="1" ValueChanged="HandleSliderChanged"/>
-                <TextBox x:Name="ButtonWidthTextBox" Grid.Column="2" Width="36" Margin="6,0,0,0" TextChanged="HandleSizeTextChanged" Tag="Width"/>
+                <Slider x:Name="WidthSlider" Grid.Column="1" Minimum="1" Maximum="256" IsSnapToTickEnabled="True" TickFrequency="1" ValueChanged="OnSliderChanged"/>
+                <TextBox x:Name="ButtonWidthTextBox" Grid.Column="2" Width="40" Margin="6,0,0,0" TextChanged="OnSizeTextChanged" Tag="Width"/>
             </Grid>
-            <Grid Margin="0,0,0,10">
+            <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="55"/>
+                    <ColumnDefinition Width="50"/>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="40"/>
+                    <ColumnDefinition Width="45"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="Height" VerticalAlignment="Center"/>
-                <Slider x:Name="HeightSlider" Grid.Column="1" Minimum="1" Maximum="256" IsSnapToTickEnabled="True" TickFrequency="1" ValueChanged="HandleSliderChanged"/>
-                <TextBox x:Name="ButtonHeightTextBox" Grid.Column="2" Width="36" Margin="6,0,0,0" TextChanged="HandleSizeTextChanged" Tag="Height"/>
+                <Slider x:Name="HeightSlider" Grid.Column="1" Minimum="1" Maximum="256" IsSnapToTickEnabled="True" TickFrequency="1" ValueChanged="OnSliderChanged"/>
+                <TextBox x:Name="ButtonHeightTextBox" Grid.Column="2" Width="40" Margin="6,0,0,0" TextChanged="OnSizeTextChanged" Tag="Height"/>
             </Grid>
+        </StackPanel>
 
-            <!-- Position Section -->
-            <TextBlock Text="POSITION" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6"/>
-            <CheckBox x:Name="CenterButtonCheckBox" Content="Center horizontally" Margin="0,0,0,6" Checked="HandleCenterToggleChanged" Unchecked="HandleCenterToggleChanged"/>
-            <Grid Margin="0,0,0,6">
+        <!-- Position Section -->
+        <StackPanel Grid.Row="1" Margin="0,0,0,12">
+            <TextBlock Text="POSITION" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+            <CheckBox x:Name="CenterButtonCheckBox" Content="Center horizontally" Margin="0,0,0,6" Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+            <Grid Margin="0,0,0,4">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="55"/>
+                    <ColumnDefinition Width="50"/>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="40"/>
+                    <ColumnDefinition Width="45"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="X Offset" VerticalAlignment="Center"/>
-                <Slider x:Name="OffsetXSlider" Grid.Column="1" Minimum="0" Maximum="400" IsSnapToTickEnabled="True" TickFrequency="1" ValueChanged="HandleSliderChanged"/>
-                <TextBox x:Name="OffsetXTextBox" Grid.Column="2" Width="36" Margin="6,0,0,0" TextChanged="HandleSizeTextChanged" Tag="OffsetX"/>
+                <Slider x:Name="OffsetXSlider" Grid.Column="1" Minimum="0" Maximum="400" IsSnapToTickEnabled="True" TickFrequency="1" ValueChanged="OnSliderChanged"/>
+                <TextBox x:Name="OffsetXTextBox" Grid.Column="2" Width="40" Margin="6,0,0,0" TextChanged="OnSizeTextChanged" Tag="OffsetX"/>
             </Grid>
-            <Grid Margin="0,0,0,10">
+            <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="55"/>
+                    <ColumnDefinition Width="50"/>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="40"/>
+                    <ColumnDefinition Width="45"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="Y Offset" VerticalAlignment="Center"/>
-                <Slider x:Name="OffsetYSlider" Grid.Column="1" Minimum="-200" Maximum="400" IsSnapToTickEnabled="True" TickFrequency="1" ValueChanged="HandleSliderChanged"/>
-                <TextBox x:Name="OffsetYTextBox" Grid.Column="2" Width="36" Margin="6,0,0,0" TextChanged="HandleSizeTextChanged" Tag="OffsetY"/>
+                <Slider x:Name="OffsetYSlider" Grid.Column="1" Minimum="-200" Maximum="400" IsSnapToTickEnabled="True" TickFrequency="1" ValueChanged="OnSliderChanged"/>
+                <TextBox x:Name="OffsetYTextBox" Grid.Column="2" Width="40" Margin="6,0,0,0" TextChanged="OnSizeTextChanged" Tag="OffsetY"/>
             </Grid>
+        </StackPanel>
 
-            <!-- Appearance Section -->
-            <TextBlock Text="APPEARANCE" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6"/>
-            <Grid Margin="0,0,0,6">
+        <!-- Appearance Section -->
+        <StackPanel Grid.Row="2" Margin="0,0,0,12">
+            <TextBlock Text="APPEARANCE" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+
+            <!-- Pinned Color -->
+            <Grid Margin="0,0,0,8">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="75"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="Pin color" VerticalAlignment="Center"/>
-                <TextBox x:Name="HighlightColorTextBox" Grid.Column="1" Margin="0,0,6,0" ToolTip="Hex color (e.g. #FF5500)"/>
-                <Border x:Name="ColorPreview" Grid.Column="2" Width="24" Height="24" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="2"/>
+                <TextBox x:Name="HighlightColorTextBox" Grid.Column="1" IsReadOnly="True"/>
+                <Border x:Name="ColorPreview" Grid.Column="2" Width="28" Height="28" Margin="6,0,0,0"
+                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="3"
+                        Cursor="Hand" MouseLeftButtonDown="ColorPreview_Click"/>
+                <Button x:Name="ClearColorButton" Grid.Column="3" Content="X" Width="28" Height="28" Margin="4,0,0,0"
+                        ToolTip="Clear color" Click="ClearColor_Click"/>
             </Grid>
+
+            <!-- Default Image -->
             <Grid Margin="0,0,0,6">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="75"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="Default img" VerticalAlignment="Center"/>
-                <TextBox x:Name="ButtonImageTextBox" Grid.Column="1" IsReadOnly="True" Margin="0,0,6,0"/>
-                <Button Content="..." Width="28" Tag="Default" Click="HandleBrowseClick"/>
+                <TextBox x:Name="ButtonImageTextBox" Grid.Column="1" IsReadOnly="True"/>
+                <Button Grid.Column="2" Content="..." Width="28" Margin="6,0,0,0" Tag="Default" Click="HandleBrowseClick"/>
+                <Button Grid.Column="3" Content="X" Width="28" Margin="4,0,0,0" Tag="ClearDefault" Click="ClearImage_Click"/>
             </Grid>
-            <Grid Margin="0,0,0,10">
+
+            <!-- Hover Image -->
+            <Grid Margin="0,0,0,6">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="75"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="Hover img" VerticalAlignment="Center"/>
-                <TextBox x:Name="HoverImageTextBox" Grid.Column="1" IsReadOnly="True" Margin="0,0,6,0"/>
-                <Button Content="..." Width="28" Tag="Hover" Click="HandleBrowseClick"/>
+                <TextBox x:Name="HoverImageTextBox" Grid.Column="1" IsReadOnly="True"/>
+                <Button Grid.Column="2" Content="..." Width="28" Margin="6,0,0,0" Tag="Hover" Click="HandleBrowseClick"/>
+                <Button Grid.Column="3" Content="X" Width="28" Margin="4,0,0,0" Tag="ClearHover" Click="ClearImage_Click"/>
             </Grid>
 
-            <!-- Ignore Lists -->
-            <TextBlock Text="IGNORE LISTS" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
-            <TextBlock Text="Window titles (one per line)" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,2"/>
-            <TextBox x:Name="IgnoredTitlesTextBox" AcceptsReturn="True" Height="50" VerticalScrollBarVisibility="Auto" Margin="0,0,0,6"/>
-            <TextBlock Text="Executables (one per line)" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,2"/>
-            <TextBox x:Name="IgnoredExecutablesTextBox" AcceptsReturn="True" Height="50" VerticalScrollBarVisibility="Auto"/>
+            <!-- Pinned Image -->
+            <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="75"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Pinned img" VerticalAlignment="Center"/>
+                <TextBox x:Name="PinnedImageTextBox" Grid.Column="1" IsReadOnly="True"/>
+                <Button Grid.Column="2" Content="..." Width="28" Margin="6,0,0,0" Tag="Pinned" Click="HandleBrowseClick"/>
+                <Button Grid.Column="3" Content="X" Width="28" Margin="4,0,0,0" Tag="ClearPinned" Click="ClearImage_Click"/>
+            </Grid>
+
+            <!-- Pinned Hover Image -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="75"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Pin hover img" VerticalAlignment="Center"/>
+                <TextBox x:Name="PinnedHoverImageTextBox" Grid.Column="1" IsReadOnly="True"/>
+                <Button Grid.Column="2" Content="..." Width="28" Margin="6,0,0,0" Tag="PinnedHover" Click="HandleBrowseClick"/>
+                <Button Grid.Column="3" Content="X" Width="28" Margin="4,0,0,0" Tag="ClearPinnedHover" Click="ClearImage_Click"/>
+            </Grid>
         </StackPanel>
 
-        <!-- Buttons -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button Content="Cancel" Width="70" Margin="0,0,6,0" Click="HandleCancelClick"/>
-            <Button Content="Apply" Width="70" Margin="0,0,6,0" Click="HandleApplyClick"/>
-            <Button x:Name="SaveButton" Content="Save" Width="70" Style="{StaticResource PrimaryButton}" Click="HandleSaveClick"/>
-        </StackPanel>
+        <!-- Ignore Lists -->
+        <Grid Grid.Row="3" Margin="0,0,0,12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Text="IGNORE LISTS" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+
+            <Grid Grid.Row="1" Margin="0,0,0,8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <TextBlock Text="Window titles (one per line)" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,2"/>
+                <TextBox x:Name="IgnoredTitlesTextBox" Grid.Row="1" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" TextChanged="OnIgnoreListChanged"/>
+            </Grid>
+
+            <Grid Grid.Row="2" Grid.RowSpan="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <TextBlock Text="Executables (one per line)" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,2"/>
+                <TextBox x:Name="IgnoredExecutablesTextBox" Grid.Row="1" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" TextChanged="OnIgnoreListChanged"/>
+            </Grid>
+        </Grid>
+
+        <!-- Bottom Row -->
+        <Grid Grid.Row="4">
+            <CheckBox x:Name="StartWithWindowsCheckBox" Content="Start with Windows" VerticalAlignment="Center" HorizontalAlignment="Left" Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+            <Button Content="Close" Width="80" HorizontalAlignment="Right" Style="{StaticResource PrimaryButton}" Click="HandleCloseClick"/>
+        </Grid>
     </Grid>
 </Window>

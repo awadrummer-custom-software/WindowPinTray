@@ -15,6 +15,7 @@ public sealed class AppSettings
     public string? ButtonImagePath { get; set; }
     public string? ButtonHoverImagePath { get; set; }
     public string? ButtonPinnedImagePath { get; set; }
+    public string? ButtonPinnedHoverImagePath { get; set; }
     public string PinnedHighlightColor { get; set; } = "#87CEFA";
     public bool CenterButton { get; set; }
     public List<string> IgnoredWindowTitles { get; set; } = new();
@@ -33,6 +34,7 @@ public sealed class AppSettings
             ButtonImagePath = ButtonImagePath,
             ButtonHoverImagePath = ButtonHoverImagePath,
             ButtonPinnedImagePath = ButtonPinnedImagePath,
+            ButtonPinnedHoverImagePath = ButtonPinnedHoverImagePath,
             PinnedHighlightColor = PinnedHighlightColor,
             CenterButton = CenterButton,
             IgnoredWindowTitles = IgnoredWindowTitles.ToList(),

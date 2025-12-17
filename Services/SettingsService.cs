@@ -97,6 +97,7 @@ public sealed class SettingsService
         clone.ButtonImagePath = NormalizePath(clone.ButtonImagePath);
         clone.ButtonHoverImagePath = NormalizePath(clone.ButtonHoverImagePath);
         clone.ButtonPinnedImagePath = NormalizePath(clone.ButtonPinnedImagePath);
+        clone.ButtonPinnedHoverImagePath = NormalizePath(clone.ButtonPinnedHoverImagePath);
         clone.PinnedHighlightColor = NormalizeColor(clone.PinnedHighlightColor);
         clone.CenterButton = clone.CenterButton;
         clone.IgnoredWindowTitles = NormalizeList(clone.IgnoredWindowTitles, isPath: false);
