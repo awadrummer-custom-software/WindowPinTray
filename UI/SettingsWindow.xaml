@@ -6,7 +6,7 @@
         Width="700"
         Height="420"
         MinWidth="600"
-        MinHeight="350"
+        MinHeight="300"
         Background="#1e1e1e">
     <Window.Resources>
         <SolidColorBrush x:Key="TextBrush" Color="#e0e0e0"/>
@@ -75,8 +75,9 @@
                 <ColumnDefinition Width="200"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Left Column: Settings -->
-            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+            <!-- Left Column: Settings (Scrollable) -->
+            <ScrollViewer Grid.Column="0" Margin="0,0,16,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
                 <!-- Size Section -->
                 <StackPanel Margin="0,0,0,12">
                     <TextBlock Text="SIZE" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8"/>
@@ -206,6 +207,7 @@
                     </Grid>
                 </StackPanel>
             </StackPanel>
+            </ScrollViewer>
 
             <!-- Right Column: Ignore Lists -->
             <Grid Grid.Column="1">
@@ -224,7 +226,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Text="Window titles" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,2"/>
+                    <TextBlock Text="Window titles (one per line)" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,2"/>
                     <TextBox x:Name="IgnoredTitlesTextBox" Grid.Row="1" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" TextChanged="OnIgnoreListChanged"/>
                 </Grid>
 
@@ -234,7 +236,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Text="Executables" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,2"/>
+                    <TextBlock Text="Executables - paths (one per line)" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,2"/>
                     <TextBox x:Name="IgnoredExecutablesTextBox" Grid.Row="1" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" TextChanged="OnIgnoreListChanged"/>
                 </Grid>
             </Grid>
@@ -242,8 +244,17 @@
 
         <!-- Bottom Row -->
         <Grid Grid.Row="1" Margin="0,12,0,0">
-            <CheckBox x:Name="StartWithWindowsCheckBox" Content="Start with Windows" VerticalAlignment="Center" HorizontalAlignment="Left" Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
-            <Button Content="Close" Width="80" HorizontalAlignment="Right" Style="{StaticResource PrimaryButton}" Click="HandleCloseClick"/>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <CheckBox x:Name="StartWithWindowsCheckBox" Grid.Column="0" Content="Start with Windows" VerticalAlignment="Center" Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button Content="Export" Width="70" Margin="0,0,8,0" Click="HandleExportClick"/>
+                <Button Content="Import" Width="70" Click="HandleImportClick"/>
+            </StackPanel>
+            <Button Grid.Column="2" Content="Close" Width="80" Style="{StaticResource PrimaryButton}" Click="HandleCloseClick"/>
         </Grid>
     </Grid>
 </Window>

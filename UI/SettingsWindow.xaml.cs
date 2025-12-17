@@ -3,22 +3,32 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using WindowPinTray.Models;
 using WindowPinTray.Services;
 using Button = System.Windows.Controls.Button;
 using Color = System.Windows.Media.Color;
 using ColorConverter = System.Windows.Media.ColorConverter;
+using MessageBox = System.Windows.MessageBox;
 using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
+using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
 using TextBox = System.Windows.Controls.TextBox;
 
 namespace WindowPinTray.UI;
 
 public partial class SettingsWindow : Window
 {
+    private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+
+    [DllImport("dwmapi.dll", PreserveSig = true)]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
     private readonly SettingsService _settingsService;
     private bool _isLoading;
 
@@ -27,12 +37,20 @@ public partial class SettingsWindow : Window
         _settingsService = settingsService;
         InitializeComponent();
 
+        SourceInitialized += (_, _) => EnableDarkTitleBar();
         Loaded += (_, _) =>
         {
             RestoreWindowPosition();
             RefreshInputs();
         };
         Closing += HandleClosing;
+    }
+
+    private void EnableDarkTitleBar()
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        var value = 1;
+        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref value, sizeof(int));
     }
 
     public void ShowFromTray()
@@ -325,6 +343,64 @@ public partial class SettingsWindow : Window
         e.Cancel = true;
         SaveWindowPosition();
         Hide();
+    }
+
+    private void HandleExportClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new SaveFileDialog
+        {
+            Filter = "JSON files|*.json|All files|*.*",
+            DefaultExt = ".json",
+            FileName = "WindowPinTray-settings.json",
+            Title = "Export Settings"
+        };
+
+        if (dialog.ShowDialog(this) == true)
+        {
+            try
+            {
+                var settings = _settingsService.CurrentSettings;
+                var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(dialog.FileName, json);
+                MessageBox.Show(this, "Settings exported successfully.", "Export", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Failed to export settings: {ex.Message}", "Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+    }
+
+    private void HandleImportClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Filter = "JSON files|*.json|All files|*.*",
+            Title = "Import Settings"
+        };
+
+        if (dialog.ShowDialog(this) == true)
+        {
+            try
+            {
+                var json = File.ReadAllText(dialog.FileName);
+                var imported = JsonSerializer.Deserialize<AppSettings>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (imported != null)
+                {
+                    _settingsService.Update(imported);
+                    RefreshInputs();
+                    MessageBox.Show(this, "Settings imported successfully.", "Import", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else
+                {
+                    MessageBox.Show(this, "Invalid settings file.", "Import Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Failed to import settings: {ex.Message}", "Import Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
     }
 
     private static string? NormalizePath(string? input)
