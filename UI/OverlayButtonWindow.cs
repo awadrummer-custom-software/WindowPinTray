@@ -34,7 +34,8 @@ internal sealed class OverlayButtonWindow : Window
     private int _lastTopPixels;
     private int _lastWidthPixels;
     private int _lastHeightPixels;
-    private IntPtr _lastInsertAfter;
+    private DateTime _lastZOrderUpdate = DateTime.MinValue;
+    private static readonly TimeSpan ZOrderThrottle = TimeSpan.FromMilliseconds(100);
 
     public OverlayButtonWindow(IntPtr targetHwnd, AppSettings settings)
     {
@@ -181,20 +182,30 @@ internal sealed class OverlayButtonWindow : Window
 
         if (_windowHandle != IntPtr.Zero)
         {
-            // Position overlay just above the target window in z-order
-            var windowInFront = NativeMethods.GetWindow(_targetHwnd, NativeMethods.GW_HWNDPREV);
-            var insertAfter = windowInFront != IntPtr.Zero ? windowInFront : _targetHwnd;
+            var positionChanged = leftPixels != _lastLeftPixels ||
+                                  topPixels != _lastTopPixels ||
+                                  buttonWidthPixels != _lastWidthPixels ||
+                                  buttonHeightPixels != _lastHeightPixels;
 
-            // Only call SetWindowPos if something actually changed (reduces flashing in GPU-accelerated apps)
-            if (leftPixels != _lastLeftPixels ||
-                topPixels != _lastTopPixels ||
-                buttonWidthPixels != _lastWidthPixels ||
-                buttonHeightPixels != _lastHeightPixels ||
-                insertAfter != _lastInsertAfter)
+            var now = DateTime.UtcNow;
+            var zOrderDue = now - _lastZOrderUpdate >= ZOrderThrottle;
+
+            // Only call SetWindowPos if position changed OR z-order update is due
+            if (positionChanged || zOrderDue)
             {
+                var windowInFront = NativeMethods.GetWindow(_targetHwnd, NativeMethods.GW_HWNDPREV);
+                var insertAfter = windowInFront != IntPtr.Zero ? windowInFront : _targetHwnd;
+
                 var flags = NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE
                             | NativeMethods.SetWindowPosFlags.SWP_NOOWNERZORDER
                             | NativeMethods.SetWindowPosFlags.SWP_NOSENDCHANGING;
+
+                // If only z-order update (no position change), skip move/size
+                if (!positionChanged)
+                {
+                    flags |= NativeMethods.SetWindowPosFlags.SWP_NOMOVE
+                           | NativeMethods.SetWindowPosFlags.SWP_NOSIZE;
+                }
 
                 NativeMethods.SetWindowPos(
                     _windowHandle,
@@ -205,11 +216,15 @@ internal sealed class OverlayButtonWindow : Window
                     buttonHeightPixels,
                     flags);
 
-                _lastLeftPixels = leftPixels;
-                _lastTopPixels = topPixels;
-                _lastWidthPixels = buttonWidthPixels;
-                _lastHeightPixels = buttonHeightPixels;
-                _lastInsertAfter = insertAfter;
+                if (positionChanged)
+                {
+                    _lastLeftPixels = leftPixels;
+                    _lastTopPixels = topPixels;
+                    _lastWidthPixels = buttonWidthPixels;
+                    _lastHeightPixels = buttonHeightPixels;
+                }
+
+                _lastZOrderUpdate = now;
             }
         }
     }
@@ -375,27 +390,7 @@ internal sealed class OverlayButtonWindow : Window
             Visibility = Visibility.Visible;
         }
 
-        // Position just above target window in z-order (only if z-order changed)
-        if (_windowHandle != IntPtr.Zero && _targetHwnd != IntPtr.Zero)
-        {
-            var windowInFront = NativeMethods.GetWindow(_targetHwnd, NativeMethods.GW_HWNDPREV);
-            var insertAfter = windowInFront != IntPtr.Zero ? windowInFront : _targetHwnd;
-
-            // Only reposition if z-order actually changed (reduces flashing in GPU-accelerated apps)
-            if (insertAfter != _lastInsertAfter)
-            {
-                NativeMethods.SetWindowPos(
-                    _windowHandle,
-                    insertAfter,
-                    0, 0, 0, 0,
-                    NativeMethods.SetWindowPosFlags.SWP_NOMOVE
-                    | NativeMethods.SetWindowPosFlags.SWP_NOSIZE
-                    | NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE
-                    | NativeMethods.SetWindowPosFlags.SWP_NOOWNERZORDER);
-
-                _lastInsertAfter = insertAfter;
-            }
-        }
+        // Z-order is managed by ApplyPositionAndSize with throttling - no need to do it here
     }
 
     private (double ScaleX, double ScaleY) GetDpiScale()
