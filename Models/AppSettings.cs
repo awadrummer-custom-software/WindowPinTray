@@ -21,6 +21,12 @@ public sealed class AppSettings
     public List<string> IgnoredWindowTitles { get; set; } = new();
     public List<string> IgnoredProcessPaths { get; set; } = new();
 
+    // Window state
+    public double? SettingsWindowLeft { get; set; }
+    public double? SettingsWindowTop { get; set; }
+    public double? SettingsWindowWidth { get; set; }
+    public double? SettingsWindowHeight { get; set; }
+
     public AppSettings Clone()
     {
         return new AppSettings
@@ -38,7 +44,11 @@ public sealed class AppSettings
             PinnedHighlightColor = PinnedHighlightColor,
             CenterButton = CenterButton,
             IgnoredWindowTitles = IgnoredWindowTitles.ToList(),
-            IgnoredProcessPaths = IgnoredProcessPaths.ToList()
+            IgnoredProcessPaths = IgnoredProcessPaths.ToList(),
+            SettingsWindowLeft = SettingsWindowLeft,
+            SettingsWindowTop = SettingsWindowTop,
+            SettingsWindowWidth = SettingsWindowWidth,
+            SettingsWindowHeight = SettingsWindowHeight
         };
     }
 

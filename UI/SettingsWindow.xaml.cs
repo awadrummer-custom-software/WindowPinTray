@@ -27,16 +27,48 @@ public partial class SettingsWindow : Window
         _settingsService = settingsService;
         InitializeComponent();
 
-        Loaded += (_, _) => RefreshInputs();
+        Loaded += (_, _) =>
+        {
+            RestoreWindowPosition();
+            RefreshInputs();
+        };
         Closing += HandleClosing;
     }
 
     public void ShowFromTray()
     {
+        RestoreWindowPosition();
         RefreshInputs();
         Show();
         Activate();
         Focus();
+    }
+
+    private void RestoreWindowPosition()
+    {
+        var settings = _settingsService.CurrentSettings;
+        if (settings.SettingsWindowWidth.HasValue && settings.SettingsWindowHeight.HasValue)
+        {
+            Width = settings.SettingsWindowWidth.Value;
+            Height = settings.SettingsWindowHeight.Value;
+        }
+
+        if (settings.SettingsWindowLeft.HasValue && settings.SettingsWindowTop.HasValue)
+        {
+            Left = settings.SettingsWindowLeft.Value;
+            Top = settings.SettingsWindowTop.Value;
+            WindowStartupLocation = WindowStartupLocation.Manual;
+        }
+    }
+
+    private void SaveWindowPosition()
+    {
+        var updated = _settingsService.CurrentSettings.Clone();
+        updated.SettingsWindowLeft = Left;
+        updated.SettingsWindowTop = Top;
+        updated.SettingsWindowWidth = Width;
+        updated.SettingsWindowHeight = Height;
+        _settingsService.Update(updated);
     }
 
     private void RefreshInputs()
@@ -284,12 +316,14 @@ public partial class SettingsWindow : Window
 
     private void HandleCloseClick(object sender, RoutedEventArgs e)
     {
+        SaveWindowPosition();
         Hide();
     }
 
     private void HandleClosing(object? sender, CancelEventArgs e)
     {
         e.Cancel = true;
+        SaveWindowPosition();
         Hide();
     }
 
