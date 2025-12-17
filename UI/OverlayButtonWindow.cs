@@ -29,6 +29,13 @@ internal sealed class OverlayButtonWindow : Window
     private bool _isMouseOver;
     private NativeMethods.RECT _lastBounds;
 
+    // Track last applied position to avoid redundant SetWindowPos calls
+    private int _lastLeftPixels;
+    private int _lastTopPixels;
+    private int _lastWidthPixels;
+    private int _lastHeightPixels;
+    private IntPtr _lastInsertAfter;
+
     public OverlayButtonWindow(IntPtr targetHwnd, AppSettings settings)
     {
         _targetHwnd = targetHwnd;
@@ -178,18 +185,32 @@ internal sealed class OverlayButtonWindow : Window
             var windowInFront = NativeMethods.GetWindow(_targetHwnd, NativeMethods.GW_HWNDPREV);
             var insertAfter = windowInFront != IntPtr.Zero ? windowInFront : _targetHwnd;
 
-            var flags = NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE
-                        | NativeMethods.SetWindowPosFlags.SWP_NOOWNERZORDER
-                        | NativeMethods.SetWindowPosFlags.SWP_NOSENDCHANGING;
+            // Only call SetWindowPos if something actually changed (reduces flashing in GPU-accelerated apps)
+            if (leftPixels != _lastLeftPixels ||
+                topPixels != _lastTopPixels ||
+                buttonWidthPixels != _lastWidthPixels ||
+                buttonHeightPixels != _lastHeightPixels ||
+                insertAfter != _lastInsertAfter)
+            {
+                var flags = NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE
+                            | NativeMethods.SetWindowPosFlags.SWP_NOOWNERZORDER
+                            | NativeMethods.SetWindowPosFlags.SWP_NOSENDCHANGING;
 
-            NativeMethods.SetWindowPos(
-                _windowHandle,
-                insertAfter,
-                leftPixels,
-                topPixels,
-                buttonWidthPixels,
-                buttonHeightPixels,
-                flags);
+                NativeMethods.SetWindowPos(
+                    _windowHandle,
+                    insertAfter,
+                    leftPixels,
+                    topPixels,
+                    buttonWidthPixels,
+                    buttonHeightPixels,
+                    flags);
+
+                _lastLeftPixels = leftPixels;
+                _lastTopPixels = topPixels;
+                _lastWidthPixels = buttonWidthPixels;
+                _lastHeightPixels = buttonHeightPixels;
+                _lastInsertAfter = insertAfter;
+            }
         }
     }
 
@@ -354,20 +375,26 @@ internal sealed class OverlayButtonWindow : Window
             Visibility = Visibility.Visible;
         }
 
-        // Position just above target window in z-order
+        // Position just above target window in z-order (only if z-order changed)
         if (_windowHandle != IntPtr.Zero && _targetHwnd != IntPtr.Zero)
         {
             var windowInFront = NativeMethods.GetWindow(_targetHwnd, NativeMethods.GW_HWNDPREV);
             var insertAfter = windowInFront != IntPtr.Zero ? windowInFront : _targetHwnd;
 
-            NativeMethods.SetWindowPos(
-                _windowHandle,
-                insertAfter,
-                0, 0, 0, 0,
-                NativeMethods.SetWindowPosFlags.SWP_NOMOVE
-                | NativeMethods.SetWindowPosFlags.SWP_NOSIZE
-                | NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE
-                | NativeMethods.SetWindowPosFlags.SWP_NOOWNERZORDER);
+            // Only reposition if z-order actually changed (reduces flashing in GPU-accelerated apps)
+            if (insertAfter != _lastInsertAfter)
+            {
+                NativeMethods.SetWindowPos(
+                    _windowHandle,
+                    insertAfter,
+                    0, 0, 0, 0,
+                    NativeMethods.SetWindowPosFlags.SWP_NOMOVE
+                    | NativeMethods.SetWindowPosFlags.SWP_NOSIZE
+                    | NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE
+                    | NativeMethods.SetWindowPosFlags.SWP_NOOWNERZORDER);
+
+                _lastInsertAfter = insertAfter;
+            }
         }
     }
 
