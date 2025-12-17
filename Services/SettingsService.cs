@@ -89,9 +89,9 @@ public sealed class SettingsService
     private static AppSettings Sanitize(AppSettings settings)
     {
         var clone = settings.Clone();
-        clone.ButtonSize = Math.Clamp(clone.ButtonSize, 1, 256);
-        clone.ButtonWidth = Math.Clamp(clone.ButtonWidth, 1, 256);
-        clone.ButtonHeight = Math.Clamp(clone.ButtonHeight, 1, 256);
+        clone.ButtonSize = Math.Clamp(clone.ButtonSize, 1, 5120);
+        clone.ButtonWidth = Math.Clamp(clone.ButtonWidth, 1, 5120);
+        clone.ButtonHeight = Math.Clamp(clone.ButtonHeight, 1, 5120);
         clone.ButtonOffsetX = Math.Clamp(clone.ButtonOffsetX, 0, 400);
         clone.ButtonOffsetY = Math.Clamp(clone.ButtonOffsetY, -200, 400);
         clone.ButtonImagePath = NormalizePath(clone.ButtonImagePath);

@@ -60,6 +60,73 @@
             <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
             <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
         </Style>
+
+        <!-- Dark Mode Scrollbar -->
+        <Style x:Key="ScrollBarThumb" TargetType="Thumb">
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border Background="#505050" CornerRadius="4"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ScrollBarThumbHover" TargetType="Thumb">
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border x:Name="ThumbBorder" Background="#606060" CornerRadius="4"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ThumbBorder" Property="Background" Value="#707070"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <ControlTemplate x:Key="VerticalScrollBar" TargetType="ScrollBar">
+            <Grid Background="#252525">
+                <Track x:Name="PART_Track" IsDirectionReversed="True">
+                    <Track.Thumb>
+                        <Thumb Style="{StaticResource ScrollBarThumbHover}" Margin="2"/>
+                    </Track.Thumb>
+                </Track>
+            </Grid>
+        </ControlTemplate>
+        <ControlTemplate x:Key="HorizontalScrollBar" TargetType="ScrollBar">
+            <Grid Background="#252525">
+                <Track x:Name="PART_Track">
+                    <Track.Thumb>
+                        <Thumb Style="{StaticResource ScrollBarThumbHover}" Margin="2"/>
+                    </Track.Thumb>
+                </Track>
+            </Grid>
+        </ControlTemplate>
+        <Style TargetType="ScrollBar">
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Vertical">
+                    <Setter Property="Width" Value="12"/>
+                    <Setter Property="Height" Value="Auto"/>
+                    <Setter Property="Template" Value="{StaticResource VerticalScrollBar}"/>
+                </Trigger>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Width" Value="Auto"/>
+                    <Setter Property="Height" Value="12"/>
+                    <Setter Property="Template" Value="{StaticResource HorizontalScrollBar}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
 
     <Grid Margin="16">
@@ -88,7 +155,7 @@
                             <ColumnDefinition Width="45"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="Width" VerticalAlignment="Center"/>
-                        <Slider x:Name="WidthSlider" Grid.Column="1" Minimum="1" Maximum="256" IsSnapToTickEnabled="True" TickFrequency="1" ValueChanged="OnSliderChanged"/>
+                        <Slider x:Name="WidthSlider" Grid.Column="1" Minimum="1" Maximum="5120" IsSnapToTickEnabled="True" TickFrequency="1" ValueChanged="OnSliderChanged"/>
                         <TextBox x:Name="ButtonWidthTextBox" Grid.Column="2" Width="40" Margin="6,0,0,0" TextChanged="OnSizeTextChanged" Tag="Width"/>
                     </Grid>
                     <Grid>
@@ -98,7 +165,7 @@
                             <ColumnDefinition Width="45"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="Height" VerticalAlignment="Center"/>
-                        <Slider x:Name="HeightSlider" Grid.Column="1" Minimum="1" Maximum="256" IsSnapToTickEnabled="True" TickFrequency="1" ValueChanged="OnSliderChanged"/>
+                        <Slider x:Name="HeightSlider" Grid.Column="1" Minimum="1" Maximum="5120" IsSnapToTickEnabled="True" TickFrequency="1" ValueChanged="OnSliderChanged"/>
                         <TextBox x:Name="ButtonHeightTextBox" Grid.Column="2" Width="40" Margin="6,0,0,0" TextChanged="OnSizeTextChanged" Tag="Height"/>
                     </Grid>
                 </StackPanel>

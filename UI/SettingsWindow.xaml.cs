@@ -185,10 +185,10 @@ public partial class SettingsWindow : Window
                 switch (textBox.Tag?.ToString())
                 {
                     case "Width":
-                        WidthSlider.Value = Math.Clamp(value, 1, 256);
+                        WidthSlider.Value = Math.Clamp(value, 1, 5120);
                         break;
                     case "Height":
-                        HeightSlider.Value = Math.Clamp(value, 1, 256);
+                        HeightSlider.Value = Math.Clamp(value, 1, 5120);
                         break;
                     case "OffsetX":
                         OffsetXSlider.Value = Math.Clamp(value, 0, 400);

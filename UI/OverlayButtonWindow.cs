@@ -113,10 +113,13 @@ internal sealed class OverlayButtonWindow : Window
     public void UpdatePosition(NativeMethods.RECT bounds)
     {
         var (scaleX, scaleY) = GetDpiScale();
-        var buttonWidthPixels = _settings.ButtonWidth;
-        var buttonHeightPixels = _settings.ButtonHeight;
 
         var windowWidth = bounds.Right - bounds.Left;
+        var windowHeight = bounds.Bottom - bounds.Top;
+
+        // Constrain button size to not exceed the target window dimensions
+        var buttonWidthPixels = Math.Min(_settings.ButtonWidth, windowWidth);
+        var buttonHeightPixels = Math.Min(_settings.ButtonHeight, windowHeight);
 
         int leftPixels;
         int topPixels;
