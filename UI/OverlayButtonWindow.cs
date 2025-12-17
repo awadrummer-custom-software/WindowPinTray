@@ -27,6 +27,7 @@ internal sealed class OverlayButtonWindow : Window
     private AppSettings _settings;
     private bool _isPinned;
     private bool _isMouseOver;
+    private NativeMethods.RECT _lastBounds;
 
     public OverlayButtonWindow(IntPtr targetHwnd, AppSettings settings)
     {
@@ -99,7 +100,7 @@ internal sealed class OverlayButtonWindow : Window
     public void ApplySettings(AppSettings settings)
     {
         _settings = settings.Clone();
-        ApplySizing();
+        ApplyPositionAndSize();
         LoadImages();
         UpdateImageSource();
     }
@@ -112,43 +113,68 @@ internal sealed class OverlayButtonWindow : Window
 
     public void UpdatePosition(NativeMethods.RECT bounds)
     {
+        _lastBounds = bounds;
+        ApplyPositionAndSize();
+    }
+
+    private void ApplyPositionAndSize()
+    {
         var (scaleX, scaleY) = GetDpiScale();
 
-        var windowWidth = bounds.Right - bounds.Left;
-        var windowHeight = bounds.Bottom - bounds.Top;
+        var windowWidth = _lastBounds.Right - _lastBounds.Left;
+        var windowHeight = _lastBounds.Bottom - _lastBounds.Top;
 
         // Constrain button size to not exceed the target window dimensions
-        var buttonWidthPixels = Math.Min(_settings.ButtonWidth, windowWidth);
-        var buttonHeightPixels = Math.Min(_settings.ButtonHeight, windowHeight);
+        int buttonWidthPixels;
+        int buttonHeightPixels;
+
+        if (windowWidth > 0 && windowHeight > 0)
+        {
+            buttonWidthPixels = Math.Min(_settings.ButtonWidth, windowWidth);
+            buttonHeightPixels = Math.Min(_settings.ButtonHeight, windowHeight);
+        }
+        else
+        {
+            // No bounds yet, use unconstrained settings
+            buttonWidthPixels = _settings.ButtonWidth;
+            buttonHeightPixels = _settings.ButtonHeight;
+        }
+
+        var widthDip = buttonWidthPixels / scaleX;
+        var heightDip = buttonHeightPixels / scaleY;
+
+        _button.Width = widthDip;
+        _button.Height = heightDip;
+        Width = widthDip;
+        Height = heightDip;
+
+        // Only position if we have valid bounds
+        if (windowWidth <= 0 || windowHeight <= 0)
+            return;
 
         int leftPixels;
         int topPixels;
 
         if (_settings.CenterButton)
         {
-            leftPixels = bounds.Left + (windowWidth - buttonWidthPixels) / 2 + _settings.ButtonOffsetX;
+            leftPixels = _lastBounds.Left + (windowWidth - buttonWidthPixels) / 2 + _settings.ButtonOffsetX;
         }
         else
         {
-            leftPixels = bounds.Right - _settings.ButtonOffsetX - buttonWidthPixels;
+            leftPixels = _lastBounds.Right - _settings.ButtonOffsetX - buttonWidthPixels;
         }
 
-        topPixels = bounds.Top + _settings.ButtonOffsetY;
+        topPixels = _lastBounds.Top + _settings.ButtonOffsetY;
 
         var leftDip = leftPixels / scaleX;
         var topDip = topPixels / scaleY;
-        var widthDip = buttonWidthPixels / scaleX;
-        var heightDip = buttonHeightPixels / scaleY;
 
-        Width = widthDip;
-        Height = heightDip;
         Left = leftDip;
         Top = topDip;
 
         if (_windowHandle != IntPtr.Zero)
         {
             // Position overlay just above the target window in z-order
-            // Get the window in front of the target, then position after it
             var windowInFront = NativeMethods.GetWindow(_targetHwnd, NativeMethods.GW_HWNDPREV);
             var insertAfter = windowInFront != IntPtr.Zero ? windowInFront : _targetHwnd;
 
@@ -165,18 +191,6 @@ internal sealed class OverlayButtonWindow : Window
                 buttonHeightPixels,
                 flags);
         }
-    }
-
-    private void ApplySizing()
-    {
-        var (scaleX, scaleY) = GetDpiScale();
-        var widthDip = _settings.ButtonWidth / scaleX;
-        var heightDip = _settings.ButtonHeight / scaleY;
-
-        _button.Width = widthDip;
-        _button.Height = heightDip;
-        Width = widthDip;
-        Height = heightDip;
     }
 
     private void LoadImages()
