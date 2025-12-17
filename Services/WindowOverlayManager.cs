@@ -31,8 +31,8 @@ internal sealed class WindowOverlayManager : IDisposable
         _settings = _settingsService.CurrentSettings;
 
         _pollTimer = new DispatcherTimer(
-            TimeSpan.FromMilliseconds(8),
-            DispatcherPriority.Render,
+            TimeSpan.FromMilliseconds(50),
+            DispatcherPriority.Background,
             (_, _) => PollControllers(),
             _dispatcher)
         {

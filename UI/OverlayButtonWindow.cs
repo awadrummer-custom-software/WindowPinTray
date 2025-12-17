@@ -35,7 +35,7 @@ internal sealed class OverlayButtonWindow : Window
     private int _lastWidthPixels;
     private int _lastHeightPixels;
     private DateTime _lastZOrderUpdate = DateTime.MinValue;
-    private static readonly TimeSpan ZOrderThrottle = TimeSpan.FromMilliseconds(100);
+    private static readonly TimeSpan ZOrderThrottle = TimeSpan.FromMilliseconds(500);
 
     public OverlayButtonWindow(IntPtr targetHwnd, AppSettings settings)
     {
@@ -198,7 +198,10 @@ internal sealed class OverlayButtonWindow : Window
 
                 var flags = NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE
                             | NativeMethods.SetWindowPosFlags.SWP_NOOWNERZORDER
-                            | NativeMethods.SetWindowPosFlags.SWP_NOSENDCHANGING;
+                            | NativeMethods.SetWindowPosFlags.SWP_NOSENDCHANGING
+                            | NativeMethods.SetWindowPosFlags.SWP_NOREDRAW
+                            | NativeMethods.SetWindowPosFlags.SWP_DEFERERASE
+                            | NativeMethods.SetWindowPosFlags.SWP_ASYNCWINDOWPOS;
 
                 // If only z-order update (no position change), skip move/size
                 if (!positionChanged)
