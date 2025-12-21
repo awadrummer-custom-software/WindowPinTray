@@ -231,4 +231,34 @@ internal static class NativeMethods
         Angular = 1,
         Raw = 2,
     }
+
+    internal const int DWMWA_EXTENDED_FRAME_BOUNDS = 9;
+
+    [DllImport("dwmapi.dll")]
+    internal static extern int DwmGetWindowAttribute(
+        IntPtr hwnd,
+        int dwAttribute,
+        out RECT pvAttribute,
+        int cbAttribute);
+
+    /// <summary>
+    /// Gets the actual visible window bounds, excluding the invisible DWM shadow.
+    /// Falls back to GetWindowRect if DWM call fails.
+    /// </summary>
+    internal static bool GetVisibleWindowRect(IntPtr hwnd, out RECT rect)
+    {
+        int result = DwmGetWindowAttribute(
+            hwnd,
+            DWMWA_EXTENDED_FRAME_BOUNDS,
+            out rect,
+            Marshal.SizeOf<RECT>());
+
+        if (result == 0)
+        {
+            return true;
+        }
+
+        // Fallback to regular GetWindowRect
+        return GetWindowRect(hwnd, out rect);
+    }
 }

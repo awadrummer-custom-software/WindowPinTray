@@ -83,7 +83,8 @@ internal sealed class WindowPinController : IDisposable
 
     private void UpdatePositionNow()
     {
-        if (!NativeMethods.GetWindowRect(_targetHwnd, out var rect))
+        // Use visible bounds (excluding DWM shadow) for accurate positioning
+        if (!NativeMethods.GetVisibleWindowRect(_targetHwnd, out var rect))
         {
             return;
         }
