@@ -472,7 +472,20 @@ internal sealed class OverlayButtonWindow : Window
                 {
                     Owner = _targetHwnd
                 };
-                _ownerSet = helper.Owner != IntPtr.Zero;
+
+                // Verify the owner was actually set at the Win32 level.
+                // WPF's helper.Owner just returns what we set, but the actual
+                // Win32 relationship may not have been established (e.g., for
+                // UWP apps, elevated windows, or cross-process scenarios).
+                if (_windowHandle != IntPtr.Zero)
+                {
+                    var actualOwner = NativeMethods.GetWindow(_windowHandle, NativeMethods.GW_OWNER);
+                    _ownerSet = actualOwner == _targetHwnd;
+                }
+                else
+                {
+                    _ownerSet = false;
+                }
             }
         }
         catch

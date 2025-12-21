@@ -169,6 +169,7 @@ internal static class NativeMethods
     internal static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
 
     internal const uint GW_HWNDPREV = 3;
+    internal const uint GW_OWNER = 4;
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
