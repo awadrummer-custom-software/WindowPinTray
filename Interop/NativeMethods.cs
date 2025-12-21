@@ -234,12 +234,29 @@ internal static class NativeMethods
 
     internal const int DWMWA_EXTENDED_FRAME_BOUNDS = 9;
 
+    internal const int SM_CXFRAME = 32;
+    internal const int SM_CYFRAME = 33;
+    internal const int SM_CXPADDEDBORDER = 92;
+
     [DllImport("dwmapi.dll")]
     internal static extern int DwmGetWindowAttribute(
         IntPtr hwnd,
         int dwAttribute,
         out RECT pvAttribute,
         int cbAttribute);
+
+    [DllImport("user32.dll")]
+    internal static extern int GetSystemMetrics(int nIndex);
+
+    /// <summary>
+    /// Gets the resize border thickness (frame + padded border).
+    /// </summary>
+    internal static int GetResizeBorderThickness()
+    {
+        int frame = GetSystemMetrics(SM_CYFRAME);
+        int padded = GetSystemMetrics(SM_CXPADDEDBORDER);
+        return frame + padded;
+    }
 
     /// <summary>
     /// Gets the actual visible window bounds, excluding the invisible DWM shadow.

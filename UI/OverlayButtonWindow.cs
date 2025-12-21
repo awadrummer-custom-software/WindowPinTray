@@ -190,7 +190,10 @@ internal sealed class OverlayButtonWindow : Window
             leftPixels = _lastBounds.Right - _settings.ButtonOffsetX - buttonWidthPixels;
         }
 
-        topPixels = _lastBounds.Top + _settings.ButtonOffsetY;
+        // Ensure button is below the resize border area (frame + padded border)
+        var minTopOffset = NativeMethods.GetResizeBorderThickness();
+        var effectiveOffsetY = Math.Max(_settings.ButtonOffsetY, minTopOffset);
+        topPixels = _lastBounds.Top + effectiveOffsetY;
 
         var leftDip = leftPixels / scaleX;
         var topDip = topPixels / scaleY;
