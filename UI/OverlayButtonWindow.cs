@@ -129,6 +129,30 @@ internal sealed class OverlayButtonWindow : Window
         ApplyPositionAndSize();
     }
 
+    /// <summary>
+    /// Forces z-order update regardless of throttle. Call when target window gains focus.
+    /// </summary>
+    public void ForceZOrderUpdate()
+    {
+        if (_windowHandle == IntPtr.Zero || _ownerSet)
+            return;
+
+        var windowInFront = NativeMethods.GetWindow(_targetHwnd, NativeMethods.GW_HWNDPREV);
+        var insertAfter = windowInFront != IntPtr.Zero ? windowInFront : _targetHwnd;
+
+        var flags = NativeMethods.SetWindowPosFlags.SWP_NOMOVE
+                    | NativeMethods.SetWindowPosFlags.SWP_NOSIZE
+                    | NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE
+                    | NativeMethods.SetWindowPosFlags.SWP_NOOWNERZORDER
+                    | NativeMethods.SetWindowPosFlags.SWP_NOSENDCHANGING
+                    | NativeMethods.SetWindowPosFlags.SWP_NOREDRAW
+                    | NativeMethods.SetWindowPosFlags.SWP_DEFERERASE
+                    | NativeMethods.SetWindowPosFlags.SWP_ASYNCWINDOWPOS;
+
+        NativeMethods.SetWindowPos(_windowHandle, insertAfter, 0, 0, 0, 0, flags);
+        _lastZOrderUpdate = DateTime.UtcNow;
+    }
+
     private void ApplyPositionAndSize()
     {
         var (scaleX, scaleY) = GetDpiScale();

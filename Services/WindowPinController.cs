@@ -70,6 +70,11 @@ internal sealed class WindowPinController : IDisposable
         }
     }
 
+    public void BringToFront()
+    {
+        _overlayWindow.ForceZOrderUpdate();
+    }
+
     private DispatcherTimer CreatePositionUpdateTimer()
     {
         var timer = new DispatcherTimer(DispatcherPriority.Background, _overlayWindow.Dispatcher);

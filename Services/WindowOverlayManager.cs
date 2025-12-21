@@ -322,6 +322,7 @@ internal sealed class WindowOverlayManager : IDisposable
         {
             existing.RefreshPinnedState();
             existing.RequestPositionUpdate();
+            existing.BringToFront(); // Force z-order update when window gains focus
             existing.ApplyVisibility(true);
             return;
         }
@@ -472,6 +473,7 @@ internal sealed class WindowOverlayManager : IDisposable
 
         foreach (var evt in new[]
                  {
+                     NativeMethods.EVENT_SYSTEM_FOREGROUND,
                      NativeMethods.EVENT_SYSTEM_MINIMIZESTART,
                      NativeMethods.EVENT_SYSTEM_MINIMIZEEND
                  })
