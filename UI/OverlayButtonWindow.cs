@@ -137,8 +137,9 @@ internal sealed class OverlayButtonWindow : Window
         if (_windowHandle == IntPtr.Zero || _ownerSet)
             return;
 
-        var windowInFront = NativeMethods.GetWindow(_targetHwnd, NativeMethods.GW_HWNDPREV);
-        var insertAfter = windowInFront != IntPtr.Zero ? windowInFront : _targetHwnd;
+        // For windows where owner couldn't be set (elevated), we already set TOPMOST style.
+        // Just ensure the overlay is positioned at TOPMOST level.
+        var insertAfter = NativeMethods.HWND_TOPMOST;
 
         var flags = NativeMethods.SetWindowPosFlags.SWP_NOMOVE
                     | NativeMethods.SetWindowPosFlags.SWP_NOSIZE
@@ -214,10 +215,7 @@ internal sealed class OverlayButtonWindow : Window
             leftPixels = _lastBounds.Right - _settings.ButtonOffsetX - buttonWidthPixels;
         }
 
-        // Ensure button is below the resize border area (frame + padded border)
-        var minTopOffset = NativeMethods.GetResizeBorderThickness();
-        var effectiveOffsetY = Math.Max(_settings.ButtonOffsetY, minTopOffset);
-        topPixels = _lastBounds.Top + effectiveOffsetY;
+        topPixels = _lastBounds.Top + _settings.ButtonOffsetY;
 
         var leftDip = leftPixels / scaleX;
         var topDip = topPixels / scaleY;
@@ -241,8 +239,8 @@ internal sealed class OverlayButtonWindow : Window
             // Only adjust z-order when needed. Movement is handled via Left/Top above.
             if (zOrderDue)
             {
-                var windowInFront = NativeMethods.GetWindow(_targetHwnd, NativeMethods.GW_HWNDPREV);
-                var insertAfter = windowInFront != IntPtr.Zero ? windowInFront : _targetHwnd;
+                // For windows where owner couldn't be set (elevated), use TOPMOST.
+                var insertAfter = NativeMethods.HWND_TOPMOST;
 
                 var flags = NativeMethods.SetWindowPosFlags.SWP_NOMOVE
                             | NativeMethods.SetWindowPosFlags.SWP_NOSIZE
@@ -322,8 +320,16 @@ internal sealed class OverlayButtonWindow : Window
             TrySetOwnerWindow();
 
             var styles = NativeMethods.GetWindowLong(handle, NativeMethods.GWL_EXSTYLE);
-            // Use TOOLWINDOW and NOACTIVATE, but NOT TOPMOST (we manage z-order manually)
             styles |= NativeMethods.WS_EX_TOOLWINDOW | NativeMethods.WS_EX_NOACTIVATE;
+
+            // If owner couldn't be set (e.g., elevated windows), use TOPMOST to ensure visibility.
+            // UIPI prevents non-elevated windows from being positioned above elevated windows
+            // via normal z-order, but TOPMOST works across elevation boundaries.
+            if (!_ownerSet)
+            {
+                styles |= NativeMethods.WS_EX_TOPMOST;
+            }
+
             NativeMethods.SetWindowLong(handle, NativeMethods.GWL_EXSTYLE, styles);
             source.AddHook(WndProc);
 
