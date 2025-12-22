@@ -93,6 +93,23 @@ internal static class WindowUtilities
         return true;
     }
 
+    internal static IntPtr NormalizeUpdateHwnd(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero)
+        {
+            return IntPtr.Zero;
+        }
+
+        var rootOwner = NativeMethods.GetAncestor(hwnd, NativeMethods.GA_ROOTOWNER);
+        if (rootOwner != IntPtr.Zero)
+        {
+            return rootOwner;
+        }
+
+        var root = NativeMethods.GetAncestor(hwnd, NativeMethods.GA_ROOT);
+        return root != IntPtr.Zero ? root : hwnd;
+    }
+
     private static bool IsIgnoredTitle(string title, IList<string> ignoredTitles)
     {
         if (ignoredTitles.Count == 0 || string.IsNullOrEmpty(title))
@@ -274,5 +291,104 @@ internal static class WindowUtilities
         }
 
         return true;
+    }
+
+    internal static bool IsWindowObscuredAtPoint(IntPtr targetHwnd, IntPtr ignoreHwnd, NativeMethods.POINT pt)
+    {
+        // Walk Z-order from top to bottom
+        var current = NativeMethods.GetWindow(NativeMethods.GetForegroundWindow(), NativeMethods.GW_HWNDFIRST);
+        
+        while (current != IntPtr.Zero)
+        {
+            if (current == ignoreHwnd)
+            {
+                current = NativeMethods.GetWindow(current, NativeMethods.GW_HWNDNEXT);
+                continue;
+            }
+
+            if (!NativeMethods.IsWindowVisible(current) || NativeMethods.IsIconic(current))
+            {
+                current = NativeMethods.GetWindow(current, NativeMethods.GW_HWNDNEXT);
+                continue;
+            }
+
+            // Check if window contains point
+            if (NativeMethods.GetWindowRect(current, out var rect))
+            {
+                if (pt.X >= rect.Left && pt.X < rect.Right && pt.Y >= rect.Top && pt.Y < rect.Bottom)
+                {
+                    // Found the top-most visible window at this point.
+                    // Is it our target?
+                    if (current == targetHwnd)
+                    {
+                        return false; // Not obscured (it's the top one)
+                    }
+
+                    // Check if it's owned by target or owns target?
+                    var root = NormalizeUpdateHwnd(current);
+                    if (root == targetHwnd)
+                    {
+                        return false;
+                    }
+
+                    // It's some other window covering our target
+                    return true;
+                }
+            }
+
+            current = NativeMethods.GetWindow(current, NativeMethods.GW_HWNDNEXT);
+        }
+
+        // If we didn't find any window at that point (unlikely if target is there), assume not obscured
+        return false;
+    }
+
+    internal static bool IsRectObscured(NativeMethods.RECT targetRect, IntPtr targetHwnd, IntPtr ignoreHwnd)
+    {
+        // Walk Z-order from top to bottom
+        var current = NativeMethods.GetTopWindow(IntPtr.Zero);
+
+        while (current != IntPtr.Zero)
+        {
+            if (current == ignoreHwnd)
+            {
+                current = NativeMethods.GetWindow(current, NativeMethods.GW_HWNDNEXT);
+                continue;
+            }
+
+            if (current == targetHwnd)
+            {
+                // We reached the target window without hitting any obscuring window.
+                return false;
+            }
+
+            // Check if it's owned by target or owns target?
+            // If the current window is related to the target, we don't consider it an obstruction.
+            var root = NormalizeUpdateHwnd(current);
+            if (root == targetHwnd)
+            {
+                current = NativeMethods.GetWindow(current, NativeMethods.GW_HWNDNEXT);
+                continue;
+            }
+
+            if (!NativeMethods.IsWindowVisible(current) || NativeMethods.IsIconic(current))
+            {
+                current = NativeMethods.GetWindow(current, NativeMethods.GW_HWNDNEXT);
+                continue;
+            }
+
+            if (NativeMethods.GetWindowRect(current, out var currentRect))
+            {
+                if (NativeMethods.IntersectRect(out _, ref targetRect, ref currentRect))
+                {
+                    // Found a window above the target that intersects with the target rect.
+                    return true;
+                }
+            }
+
+            current = NativeMethods.GetWindow(current, NativeMethods.GW_HWNDNEXT);
+        }
+
+        return false;
     }
 }

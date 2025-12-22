@@ -114,6 +114,34 @@ internal sealed class WindowPinController : IDisposable
             return;
         }
 
+        // If we can't own the window, we must use TOPMOST to stay above it.
+        // To avoid floating over other windows, only show if the button area is not obscured by a window above the target.
+        if (!_overlayWindow.IsOwnerSet)
+        {
+            bool isTopMost = NativeMethods.IsWindowTopMost(_targetHwnd);
+            
+            // If it's already pinned (TopMost), we generally want to show it.
+            // But if another TopMost window covers it, we might want to hide it?
+            // For now, let's assume pinned windows should always show their button unless obscured.
+            
+            var buttonRect = _overlayWindow.GetButtonRect();
+            bool isObscured = WindowUtilities.IsRectObscured(buttonRect, _targetHwnd, _overlayWindow.Handle);
+
+            if (isObscured)
+            {
+                // If obscured, hide it.
+                // Exception: If we are currently mousing over the button, and for some reason IsRectObscured thinks it's obscured
+                // (maybe by a transparent window?), we might want to keep it?
+                // But generally, if it's visually obscured, we should hide.
+                
+                if (_overlayWindow.IsVisible)
+                {
+                    _overlayWindow.Hide();
+                }
+                return;
+            }
+        }
+
         // Show the button
         if (!_overlayWindow.IsVisible)
         {

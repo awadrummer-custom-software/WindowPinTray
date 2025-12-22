@@ -172,12 +172,23 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     internal static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
 
+    [DllImport("user32.dll")]
+    internal static extern IntPtr GetTopWindow(IntPtr hWnd);
+
+    internal const uint GW_HWNDFIRST = 0;
+    internal const uint GW_HWNDLAST = 1;
+    internal const uint GW_HWNDNEXT = 2;
     internal const uint GW_HWNDPREV = 3;
     internal const uint GW_OWNER = 4;
+    internal const uint GW_CHILD = 5;
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool IntersectRect(out RECT lprcDst, [In] ref RECT lprcSrc1, [In] ref RECT lprcSrc2);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool GetCursorPos(out POINT lpPoint);
 
     [DllImport("user32.dll")]
     internal static extern IntPtr WindowFromPoint(POINT point);

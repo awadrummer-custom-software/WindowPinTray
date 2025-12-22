@@ -114,6 +114,9 @@ internal sealed class OverlayButtonWindow : Window
 
     public event EventHandler? PinRequested;
 
+    public bool IsOwnerSet => _ownerSet;
+    public IntPtr Handle => _windowHandle;
+
     public void ApplySettings(AppSettings settings)
     {
         _settings = settings.Clone();
@@ -142,10 +145,18 @@ internal sealed class OverlayButtonWindow : Window
         if (_windowHandle == IntPtr.Zero)
             return;
 
-        // If target is topmost, we MUST be topmost to be visible on top of it.
-        // If we aren't owned, we MUST be topmost to stay on top of the target.
         bool targetIsTopMost = NativeMethods.IsWindowTopMost(_targetHwnd);
-        var insertAfter = (_ownerSet && !targetIsTopMost) ? NativeMethods.HWND_TOP : NativeMethods.HWND_TOPMOST;
+
+        // If we're properly owned and target is not topmost, let Windows handle z-order.
+        // The owner relationship automatically keeps us above our owner but below other windows.
+        // Only force z-order when: target is topmost (we need topmost too) or we're not owned.
+        if (_ownerSet && !targetIsTopMost)
+        {
+            _lastZOrderUpdate = DateTime.UtcNow;
+            return; // Let Windows manage z-order via owner relationship
+        }
+
+        var insertAfter = NativeMethods.HWND_TOPMOST;
 
         var flags = NativeMethods.SetWindowPosFlags.SWP_NOMOVE
                     | NativeMethods.SetWindowPosFlags.SWP_NOSIZE
@@ -244,31 +255,27 @@ internal sealed class OverlayButtonWindow : Window
 
             if (zOrderDue)
             {
-                // Only enforce Z-order if we aren't already correct, to avoid flicker.
                 bool targetIsTopMost = NativeMethods.IsWindowTopMost(_targetHwnd);
                 bool selfIsTopMost = NativeMethods.IsWindowTopMost(_windowHandle);
 
-                if (targetIsTopMost || !_ownerSet)
+                if (_ownerSet && !targetIsTopMost)
                 {
-                    if (!selfIsTopMost)
-                    {
-                        needZUpdate = true;
-                        insertAfter = NativeMethods.HWND_TOPMOST;
-                    }
-                }
-                else
-                {
-                    // Owned and target is not topmost. We should not be topmost.
+                    // Owned and target is not topmost - let Windows handle z-order.
+                    // Only intervene if we're incorrectly topmost.
                     if (selfIsTopMost)
                     {
                         needZUpdate = true;
                         insertAfter = NativeMethods.HWND_NOTOPMOST;
                     }
-                    else
+                    // Otherwise, don't touch z-order at all - owner relationship handles it
+                }
+                else if (targetIsTopMost || !_ownerSet)
+                {
+                    // Target is topmost or we're not owned - we need to be topmost
+                    if (!selfIsTopMost)
                     {
-                        // We want to be HWND_TOP to ensure we are above the owner.
                         needZUpdate = true;
-                        insertAfter = NativeMethods.HWND_TOP;
+                        insertAfter = NativeMethods.HWND_TOPMOST;
                     }
                 }
             }
@@ -289,6 +296,17 @@ internal sealed class OverlayButtonWindow : Window
 
             NativeMethods.SetWindowPos(_windowHandle, insertAfter, leftPixels, topPixels, buttonWidthPixels, buttonHeightPixels, flags);
         }
+    }
+
+    public NativeMethods.RECT GetButtonRect()
+    {
+        return new NativeMethods.RECT
+        {
+            Left = _lastLeftPixels,
+            Top = _lastTopPixels,
+            Right = _lastLeftPixels + _lastWidthPixels,
+            Bottom = _lastTopPixels + _lastHeightPixels
+        };
     }
 
     private void LoadImages()

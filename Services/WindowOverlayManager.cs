@@ -208,7 +208,7 @@ internal sealed class WindowOverlayManager : IDisposable
         // to the root owner so the overlay attached to the top-level window can still track movement.
         if (action.HasFlag(PendingWindowAction.Update) || action.HasFlag(PendingWindowAction.MoveStart) || action.HasFlag(PendingWindowAction.MoveEnd))
         {
-            hwnd = NormalizeUpdateHwnd(hwnd);
+            hwnd = WindowUtilities.NormalizeUpdateHwnd(hwnd);
             if (hwnd == IntPtr.Zero)
             {
                 return;
@@ -240,23 +240,6 @@ internal sealed class WindowOverlayManager : IDisposable
         }
 
         _ = _dispatcher.BeginInvoke(new Action(FlushPendingEvents), DispatcherPriority.Background);
-    }
-
-    private static IntPtr NormalizeUpdateHwnd(IntPtr hwnd)
-    {
-        if (hwnd == IntPtr.Zero)
-        {
-            return IntPtr.Zero;
-        }
-
-        var rootOwner = NativeMethods.GetAncestor(hwnd, NativeMethods.GA_ROOTOWNER);
-        if (rootOwner != IntPtr.Zero)
-        {
-            return rootOwner;
-        }
-
-        var root = NativeMethods.GetAncestor(hwnd, NativeMethods.GA_ROOT);
-        return root != IntPtr.Zero ? root : hwnd;
     }
 
     private void FlushPendingEvents()
@@ -548,10 +531,17 @@ internal sealed class WindowOverlayManager : IDisposable
             return;
         }
 
-        hwnd = NormalizeUpdateHwnd(hwnd);
+        hwnd = WindowUtilities.NormalizeUpdateHwnd(hwnd);
         if (hwnd == IntPtr.Zero)
         {
             return;
+        }
+
+        // When foreground changes, immediately re-evaluate visibility for all controllers
+        // to ensure background overlays hide and the new foreground overlay shows without delay.
+        foreach (var c in _controllers.Values)
+        {
+            c.ApplyVisibility(true);
         }
 
         if (_controllers.TryGetValue(hwnd, out var controller))
