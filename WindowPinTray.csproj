@@ -14,4 +14,13 @@
     <PackageReference Include="SharpVectors.Wpf" Version="1.8.4" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="ElevatedHelper\**" />
+    <Content Remove="ElevatedHelper\**" />
+    <EmbeddedResource Remove="ElevatedHelper\**" />
+    <None Remove="ElevatedHelper\**" />
+    <Page Remove="ElevatedHelper\**" />
+    <ApplicationDefinition Remove="ElevatedHelper\**" />
+  </ItemGroup>
+
 </Project>

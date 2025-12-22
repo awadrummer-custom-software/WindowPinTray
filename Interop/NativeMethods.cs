@@ -42,6 +42,7 @@ internal static class NativeMethods
     internal const int WM_MOUSEACTIVATE = 0x21;
     internal const int MA_NOACTIVATE = 0x0003;
 
+    internal static readonly IntPtr HWND_TOP = new IntPtr(0);
     internal static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
     internal static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
 

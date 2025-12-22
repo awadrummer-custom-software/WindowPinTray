@@ -36,7 +36,7 @@ internal sealed class OverlayButtonWindow : Window
     private int _lastWidthPixels;
     private int _lastHeightPixels;
     private DateTime _lastZOrderUpdate = DateTime.MinValue;
-    private static readonly TimeSpan ZOrderThrottle = TimeSpan.FromMilliseconds(500);
+    private static readonly TimeSpan ZOrderThrottle = TimeSpan.FromMilliseconds(200);
     private double _lastScaleX = 1.0;
     private double _lastScaleY = 1.0;
 
@@ -134,12 +134,13 @@ internal sealed class OverlayButtonWindow : Window
     /// </summary>
     public void ForceZOrderUpdate()
     {
-        if (_windowHandle == IntPtr.Zero || _ownerSet)
+        if (_windowHandle == IntPtr.Zero)
             return;
 
-        // For windows where owner couldn't be set (elevated), we already set TOPMOST style.
-        // Just ensure the overlay is positioned at TOPMOST level.
-        var insertAfter = NativeMethods.HWND_TOPMOST;
+        // If target is topmost, we MUST be topmost to be visible on top of it.
+        // If we aren't owned, we MUST be topmost to stay on top of the target.
+        bool targetIsTopMost = NativeMethods.IsWindowTopMost(_targetHwnd);
+        var insertAfter = (_ownerSet && !targetIsTopMost) ? NativeMethods.HWND_TOP : NativeMethods.HWND_TOPMOST;
 
         var flags = NativeMethods.SetWindowPosFlags.SWP_NOMOVE
                     | NativeMethods.SetWindowPosFlags.SWP_NOSIZE
@@ -147,8 +148,7 @@ internal sealed class OverlayButtonWindow : Window
                     | NativeMethods.SetWindowPosFlags.SWP_NOOWNERZORDER
                     | NativeMethods.SetWindowPosFlags.SWP_NOSENDCHANGING
                     | NativeMethods.SetWindowPosFlags.SWP_NOREDRAW
-                    | NativeMethods.SetWindowPosFlags.SWP_DEFERERASE
-                    | NativeMethods.SetWindowPosFlags.SWP_ASYNCWINDOWPOS;
+                    | NativeMethods.SetWindowPosFlags.SWP_DEFERERASE;
 
         NativeMethods.SetWindowPos(_windowHandle, insertAfter, 0, 0, 0, 0, flags);
         _lastZOrderUpdate = DateTime.UtcNow;
@@ -156,12 +156,13 @@ internal sealed class OverlayButtonWindow : Window
 
     private void ApplyPositionAndSize()
     {
+        if (_windowHandle == IntPtr.Zero) return;
+
         var (scaleX, scaleY) = GetDpiScale();
 
         var windowWidth = _lastBounds.Right - _lastBounds.Left;
         var windowHeight = _lastBounds.Bottom - _lastBounds.Top;
 
-        // Constrain button size to not exceed the target window dimensions
         int buttonWidthPixels;
         int buttonHeightPixels;
 
@@ -172,7 +173,6 @@ internal sealed class OverlayButtonWindow : Window
         }
         else
         {
-            // No bounds yet, use unconstrained settings
             buttonWidthPixels = _settings.ButtonWidth;
             buttonHeightPixels = _settings.ButtonHeight;
         }
@@ -199,7 +199,6 @@ internal sealed class OverlayButtonWindow : Window
             _lastScaleY = scaleY;
         }
 
-        // Only position if we have valid bounds
         if (windowWidth <= 0 || windowHeight <= 0)
             return;
 
@@ -217,43 +216,73 @@ internal sealed class OverlayButtonWindow : Window
 
         topPixels = _lastBounds.Top + _settings.ButtonOffsetY;
 
-        var leftDip = leftPixels / scaleX;
-        var topDip = topPixels / scaleY;
-
+        // Strictly use SetWindowPos. Do not touch WPF Left/Top as it triggers redundant Win32 moves
+        // and potentially interferes with focus/activation.
+        
         var positionChanged = leftPixels != _lastLeftPixels || topPixels != _lastTopPixels;
+        var now = DateTime.UtcNow;
+        var zOrderDue = now - _lastZOrderUpdate >= ZOrderThrottle;
 
-        // Use WPF properties for movement to keep WPF's window state in sync.
-        if (positionChanged)
+        if (positionChanged || zOrderDue)
         {
-            Left = leftDip;
-            Top = topDip;
             _lastLeftPixels = leftPixels;
             _lastTopPixels = topPixels;
-        }
 
-        if (_windowHandle != IntPtr.Zero)
-        {
-            var now = DateTime.UtcNow;
-            var zOrderDue = !_ownerSet && now - _lastZOrderUpdate >= ZOrderThrottle;
+            var flags = NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
+                        NativeMethods.SetWindowPosFlags.SWP_NOOWNERZORDER |
+                        NativeMethods.SetWindowPosFlags.SWP_NOSENDCHANGING |
+                        NativeMethods.SetWindowPosFlags.SWP_NOREDRAW |
+                        NativeMethods.SetWindowPosFlags.SWP_DEFERERASE;
+            
+            IntPtr insertAfter = NativeMethods.HWND_TOP; 
+            bool needZUpdate = false;
 
-            // Only adjust z-order when needed. Movement is handled via Left/Top above.
             if (zOrderDue)
             {
-                // For windows where owner couldn't be set (elevated), use TOPMOST.
-                var insertAfter = NativeMethods.HWND_TOPMOST;
+                // Only enforce Z-order if we aren't already correct, to avoid flicker.
+                bool targetIsTopMost = NativeMethods.IsWindowTopMost(_targetHwnd);
+                bool selfIsTopMost = NativeMethods.IsWindowTopMost(_windowHandle);
 
-                var flags = NativeMethods.SetWindowPosFlags.SWP_NOMOVE
-                            | NativeMethods.SetWindowPosFlags.SWP_NOSIZE
-                            | NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE
-                            | NativeMethods.SetWindowPosFlags.SWP_NOOWNERZORDER
-                            | NativeMethods.SetWindowPosFlags.SWP_NOSENDCHANGING
-                            | NativeMethods.SetWindowPosFlags.SWP_NOREDRAW
-                            | NativeMethods.SetWindowPosFlags.SWP_DEFERERASE
-                            | NativeMethods.SetWindowPosFlags.SWP_ASYNCWINDOWPOS;
+                if (targetIsTopMost || !_ownerSet)
+                {
+                    if (!selfIsTopMost)
+                    {
+                        needZUpdate = true;
+                        insertAfter = NativeMethods.HWND_TOPMOST;
+                    }
+                }
+                else
+                {
+                    // Owned and target is not topmost. We should not be topmost.
+                    if (selfIsTopMost)
+                    {
+                        needZUpdate = true;
+                        insertAfter = NativeMethods.HWND_NOTOPMOST;
+                    }
+                    else
+                    {
+                        // We want to be HWND_TOP to ensure we are above the owner.
+                        needZUpdate = true;
+                        insertAfter = NativeMethods.HWND_TOP;
+                    }
+                }
+            }
 
-                NativeMethods.SetWindowPos(_windowHandle, insertAfter, 0, 0, 0, 0, flags);
+            if (needZUpdate)
+            {
                 _lastZOrderUpdate = now;
             }
+            else
+            {
+                flags |= NativeMethods.SetWindowPosFlags.SWP_NOZORDER;
+            }
+
+            if (!positionChanged)
+            {
+                flags |= NativeMethods.SetWindowPosFlags.SWP_NOMOVE | NativeMethods.SetWindowPosFlags.SWP_NOSIZE;
+            }
+
+            NativeMethods.SetWindowPos(_windowHandle, insertAfter, leftPixels, topPixels, buttonWidthPixels, buttonHeightPixels, flags);
         }
     }
 
@@ -426,12 +455,18 @@ internal sealed class OverlayButtonWindow : Window
         {
             Show();
         }
-        else
+        else if (Visibility != Visibility.Visible)
         {
             Visibility = Visibility.Visible;
         }
 
-        // Z-order is managed by ApplyPositionAndSize with throttling - no need to do it here
+        // If the target window is foreground, we want to be very responsive with Z-order.
+        // ApplyPositionAndSize handles periodic updates, but we can trigger one here
+        // if we're the active window's overlay and it's been a bit since the last update.
+        if (DateTime.UtcNow - _lastZOrderUpdate > ZOrderThrottle)
+        {
+            ForceZOrderUpdate();
+        }
     }
 
     private (double ScaleX, double ScaleY) GetDpiScale()
