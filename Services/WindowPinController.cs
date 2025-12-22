@@ -176,19 +176,6 @@ internal sealed class WindowPinController : IDisposable
         {
             DebugLogger.Log($"TogglePinned: ElevatedHelper failed or unavailable, falling back to SetWindowPos");
 
-            // If we're not elevated, we can't unpin an elevated window.
-            // But we can try to clear the style bit anyway just in case.
-            
-            if (!targetPinned)
-            {
-                // Explicitly clear style bit for unpinning fallback
-                var exStyle = (uint)NativeMethods.GetWindowLong(_targetHwnd, NativeMethods.GWL_EXSTYLE);
-                if ((exStyle & NativeMethods.WS_EX_TOPMOST) != 0)
-                {
-                    NativeMethods.SetWindowLong(_targetHwnd, NativeMethods.GWL_EXSTYLE, (int)(exStyle & ~NativeMethods.WS_EX_TOPMOST));
-                }
-            }
-
             success = NativeMethods.SetWindowPos(
                 _targetHwnd,
                 insertAfter,
@@ -200,6 +187,36 @@ internal sealed class WindowPinController : IDisposable
                 | NativeMethods.SetWindowPosFlags.SWP_NOSIZE
                 | NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE
                 | NativeMethods.SetWindowPosFlags.SWP_FRAMECHANGED);
+
+            // If we're not elevated, we can't unpin an elevated window.
+            // But we can try to clear the style bit anyway just in case.
+            if (!targetPinned)
+            {
+                // Explicitly clear style bit for unpinning fallback
+                var exStyle = NativeMethods.GetWindowLongPtr(_targetHwnd, NativeMethods.GWL_EXSTYLE).ToInt64();
+                if ((exStyle & NativeMethods.WS_EX_TOPMOST) != 0)
+                {
+                    NativeMethods.SetWindowLongPtr(_targetHwnd, NativeMethods.GWL_EXSTYLE, new IntPtr(exStyle & ~NativeMethods.WS_EX_TOPMOST));
+                    
+                    // Force a frame change to apply the style change
+                    NativeMethods.SetWindowPos(
+                        _targetHwnd,
+                        IntPtr.Zero,
+                        0, 0, 0, 0,
+                        NativeMethods.SetWindowPosFlags.SWP_NOMOVE | 
+                        NativeMethods.SetWindowPosFlags.SWP_NOSIZE | 
+                        NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE | 
+                        NativeMethods.SetWindowPosFlags.SWP_NOZORDER | 
+                        NativeMethods.SetWindowPosFlags.SWP_FRAMECHANGED);
+
+                    // Verify if it's actually gone
+                    var finalExStyle = NativeMethods.GetWindowLongPtr(_targetHwnd, NativeMethods.GWL_EXSTYLE).ToInt64();
+                    if ((finalExStyle & NativeMethods.WS_EX_TOPMOST) == 0)
+                    {
+                        success = true;
+                    }
+                }
+            }
             
             if (success)
             {

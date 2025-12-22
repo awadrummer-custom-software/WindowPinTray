@@ -195,17 +195,7 @@ public partial class App : Application
 
         var insertAfter = cmd.IsPinned ? NativeMethods.HWND_TOPMOST : NativeMethods.HWND_NOTOPMOST;
 
-        // For unpinning elevated windows, sometimes we need to explicitly clear the style bit
-        // because SetWindowPos with HWND_NOTOPMOST can be ignored by some system windows.
-        if (!cmd.IsPinned)
-        {
-            var exStyle = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE);
-            if ((exStyle & NativeMethods.WS_EX_TOPMOST) != 0)
-            {
-                NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE, exStyle & ~NativeMethods.WS_EX_TOPMOST);
-            }
-        }
-
+        // Use SetWindowPos as the primary method for changing topmost state
         var success = NativeMethods.SetWindowPos(
             hwnd,
             insertAfter,
@@ -216,10 +206,33 @@ public partial class App : Application
             NativeMethods.SWP_NOMOVE
             | NativeMethods.SWP_NOSIZE
             | NativeMethods.SWP_NOACTIVATE
-            | NativeMethods.SWP_NOOWNERZORDER
-            | NativeMethods.SWP_NOSENDCHANGING
-            | NativeMethods.SWP_FRAMECHANGED
-            | NativeMethods.SWP_ASYNCWINDOWPOS);
+            | NativeMethods.SWP_FRAMECHANGED);
+
+        // For unpinning, if SetWindowPos didn't remove the bit (can happen with some system windows),
+        // force it via SetWindowLongPtr.
+        if (!cmd.IsPinned)
+        {
+            var exStyle = NativeMethods.GetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE).ToInt64();
+            if ((exStyle & NativeMethods.WS_EX_TOPMOST) != 0)
+            {
+                NativeMethods.SetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE, new IntPtr(exStyle & ~NativeMethods.WS_EX_TOPMOST));
+                
+                // Force a frame change to apply the style change
+                NativeMethods.SetWindowPos(
+                    hwnd,
+                    IntPtr.Zero,
+                    0, 0, 0, 0,
+                    NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE | 
+                    NativeMethods.SWP_NOZORDER | NativeMethods.SWP_FRAMECHANGED);
+                
+                // Verify if it's actually gone
+                var finalExStyle = NativeMethods.GetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE).ToInt64();
+                if ((finalExStyle & NativeMethods.WS_EX_TOPMOST) == 0)
+                {
+                    success = true;
+                }
+            }
+        }
 
         if (!success)
         {
@@ -304,6 +317,7 @@ public class HelperSettings
         internal static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
         internal const uint SWP_NOMOVE = 0x0002;
         internal const uint SWP_NOSIZE = 0x0001;
+        internal const uint SWP_NOZORDER = 0x0004;
         internal const uint SWP_NOACTIVATE = 0x0010;
         internal const uint SWP_FRAMECHANGED = 0x0020;
         internal const uint SWP_NOOWNERZORDER = 0x0200;
@@ -318,6 +332,12 @@ public class HelperSettings
         public int Right;
         public int Bottom;
     }
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtr", SetLastError = true)]
+    internal static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr", SetLastError = true)]
+    internal static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
 
     [DllImport("user32.dll")]
     internal static extern int GetWindowLong(IntPtr hWnd, int nIndex);
