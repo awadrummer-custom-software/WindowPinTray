@@ -9,6 +9,7 @@ namespace WindowPinTray.Services;
 internal sealed class WindowPinController : IDisposable
 {
     private readonly IntPtr _targetHwnd;
+    private readonly ElevatedHelperService _elevatedHelperService;
     private readonly OverlayButtonWindow _overlayWindow;
     private bool _isPinned;
     private DateTime _lastToggleTime = DateTime.MinValue;
@@ -22,12 +23,13 @@ internal sealed class WindowPinController : IDisposable
     public bool IsPinned => _isPinned;
     public bool HasLoggedInitialState { get; set; }
 
-    public WindowPinController(IntPtr targetHwnd, AppSettings settings)
+    public WindowPinController(IntPtr targetHwnd, AppSettings settings, ElevatedHelperService elevatedHelperService)
     {
         _targetHwnd = targetHwnd;
+        _elevatedHelperService = elevatedHelperService;
         _overlayWindow = new OverlayButtonWindow(targetHwnd, settings);
         _overlayWindow.PinRequested += HandlePinRequested;
-        _isPinned = NativeMethods.IsWindowTopMost(_targetHwnd);
+        _isPinned = _elevatedHelperService.IsWindowTopMost(_targetHwnd);
         UpdatePosition();
     }
 
@@ -150,6 +152,8 @@ internal sealed class WindowPinController : IDisposable
         var targetPinned = !_isPinned;
         var insertAfter = targetPinned ? NativeMethods.HWND_TOPMOST : NativeMethods.HWND_NOTOPMOST;
 
+        DebugLogger.Log($"TogglePinned requested for 0x{_targetHwnd:X}. Current: {originalPinned}, Target: {targetPinned}");
+
         // Set state BEFORE calling SetWindowPos so any events triggered during the call
         // will see the correct pin state and won't hide the button
         var now = DateTime.UtcNow;
@@ -158,19 +162,66 @@ internal sealed class WindowPinController : IDisposable
         _visibilityLockUntil = now + VisibilityLockDuration;
         _overlayWindow.UpdatePinnedState(_isPinned);
 
-        var success = NativeMethods.SetWindowPos(
-            _targetHwnd,
-            insertAfter,
-            0,
-            0,
-            0,
-            0,
-            NativeMethods.SetWindowPosFlags.SWP_NOMOVE
-            | NativeMethods.SetWindowPosFlags.SWP_NOSIZE
-            | NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE);
+        bool success;
+        
+        // Try using the elevated helper first if the window might be elevated
+        // or if we're having trouble with normal SetWindowPos.
+        // Task Manager and other system windows often require this.
+        if (_elevatedHelperService.TrySetPinnedState(_targetHwnd, targetPinned))
+        {
+            DebugLogger.Log($"TogglePinned: ElevatedHelper successfully set state to {targetPinned}");
+            success = true;
+        }
+        else
+        {
+            DebugLogger.Log($"TogglePinned: ElevatedHelper failed or unavailable, falling back to SetWindowPos");
+
+            // If we're not elevated, we can't unpin an elevated window.
+            // But we can try to clear the style bit anyway just in case.
+            
+            if (!targetPinned)
+            {
+                // Explicitly clear style bit for unpinning fallback
+                var exStyle = (uint)NativeMethods.GetWindowLong(_targetHwnd, NativeMethods.GWL_EXSTYLE);
+                if ((exStyle & NativeMethods.WS_EX_TOPMOST) != 0)
+                {
+                    NativeMethods.SetWindowLong(_targetHwnd, NativeMethods.GWL_EXSTYLE, (int)(exStyle & ~NativeMethods.WS_EX_TOPMOST));
+                }
+            }
+
+            success = NativeMethods.SetWindowPos(
+                _targetHwnd,
+                insertAfter,
+                0,
+                0,
+                0,
+                0,
+                NativeMethods.SetWindowPosFlags.SWP_NOMOVE
+                | NativeMethods.SetWindowPosFlags.SWP_NOSIZE
+                | NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE
+                | NativeMethods.SetWindowPosFlags.SWP_FRAMECHANGED);
+            
+            if (success)
+            {
+                DebugLogger.Log($"TogglePinned: SetWindowPos succeeded");
+            }
+            else
+            {
+                var error = System.Runtime.InteropServices.Marshal.GetLastWin32Error();
+                DebugLogger.Log($"TogglePinned: SetWindowPos failed with error {error}");
+                
+                // If we failed with Access Denied (5) and it's an elevated window,
+                // we really need that helper.
+                if (error == 5)
+                {
+                    DebugLogger.Log("TogglePinned: Access Denied (5). This window is likely elevated and requires the signed ElevatedHelper in a trusted folder.");
+                }
+            }
+        }
 
         if (!success)
         {
+            DebugLogger.Log($"TogglePinned: Operation failed, reverting state");
             // Revert state if the operation failed
             _isPinned = originalPinned;
             _visibilityLockUntil = DateTime.MinValue;
@@ -195,7 +246,12 @@ internal sealed class WindowPinController : IDisposable
             return;
         }
 
-        _isPinned = NativeMethods.IsWindowTopMost(_targetHwnd);
-        _overlayWindow.UpdatePinnedState(_isPinned);
+        var actualPinned = _elevatedHelperService.IsWindowTopMost(_targetHwnd);
+        if (actualPinned != _isPinned)
+        {
+            DebugLogger.Log($"SyncPinnedState: State mismatch for 0x{_targetHwnd:X}. Internal: {_isPinned}, Actual: {actualPinned}. Updating internal state.");
+            _isPinned = actualPinned;
+            _overlayWindow.UpdatePinnedState(_isPinned);
+        }
     }
 }

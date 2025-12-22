@@ -104,40 +104,59 @@ function Sign-Application {
     Write-Host "Using certificate: $($cert.Thumbprint)" -ForegroundColor Cyan
 
     # Build first
-    Write-Host "Building Release configuration..." -ForegroundColor Cyan
-    Push-Location $PSScriptRoot
-    dotnet build --configuration Release
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Build failed"
-        Pop-Location
-        exit 1
+    # Write-Host "Building Release configuration..." -ForegroundColor Cyan
+    # Push-Location $PSScriptRoot
+    # dotnet build --configuration Release
+    # if ($LASTEXITCODE -ne 0) {
+    #     Write-Error "Build failed"
+    #     Pop-Location
+    #     exit 1
+    # }
+    # Pop-Location
+
+    # Sign the executables
+    $releaseDir = "$PSScriptRoot\bin\Release\net9.0-windows"
+    $exes = @(
+        "$releaseDir\WindowPinTray.exe",
+        "$releaseDir\WindowPinTray.ElevatedHelper.exe"
+    )
+
+    foreach ($exePath in $exes) {
+        if (-not (Test-Path $exePath)) {
+            Write-Error "Executable not found: $exePath"
+            exit 1
+        }
+
+        Write-Host "Signing: $exePath" -ForegroundColor Cyan
+        & $SignTool sign /sha1 $cert.Thumbprint /fd SHA256 /t http://timestamp.digicert.com $exePath
+
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Signing failed for $exePath"
+            exit 1
+        }
     }
-    Pop-Location
 
-    # Sign the executable
-    $exePath = "$PSScriptRoot\bin\Release\net9.0-windows\WindowPinTray.exe"
+    Write-Host "`nApplications signed successfully!" -ForegroundColor Green
 
-    if (-not (Test-Path $exePath)) {
-        Write-Error "Executable not found: $exePath"
-        exit 1
+    # Verify signatures
+    Write-Host "`nVerifying signatures..." -ForegroundColor Cyan
+    foreach ($exePath in $exes) {
+        & $SignTool verify /pa $exePath
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Signature verified: $exePath" -ForegroundColor Green
+        }
     }
 
-    Write-Host "Signing: $exePath" -ForegroundColor Cyan
-    & $SignTool sign /sha1 $cert.Thumbprint /fd SHA256 /t http://timestamp.digicert.com $exePath
-
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Signing failed"
-        exit 1
-    }
-
-    Write-Host "`nApplication signed successfully!" -ForegroundColor Green
-
-    # Verify signature
-    Write-Host "`nVerifying signature..." -ForegroundColor Cyan
-    & $SignTool verify /pa $exePath
-
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "`nSignature verified!" -ForegroundColor Green
+    # Copy to Program Files
+    $targetDir = "C:\Program Files\Window Pin Tray"
+    if (Test-Path $targetDir) {
+        Write-Host "`nCopying to $targetDir..." -ForegroundColor Cyan
+        try {
+            Copy-Item -Path "$releaseDir\*" -Destination $targetDir -Recurse -Force
+            Write-Host "Copy successful!" -ForegroundColor Green
+        } catch {
+            Write-Host "Failed to copy to $targetDir. Ensure you are running as Administrator and the application is closed." -ForegroundColor Red
+        }
     }
 }
 

@@ -96,9 +96,14 @@ internal sealed class OverlayButtonWindow : Window
                 PinRequested?.Invoke(this, EventArgs.Empty);
             }
         };
-        _button.MouseRightButtonDown += (_, _) =>
+        _button.MouseRightButtonDown += (_, e) =>
         {
             Services.DebugLogger.LogWindowInfo(_targetHwnd, "RIGHT-CLICK on pin button");
+            e.Handled = true;
+        };
+        _button.MouseRightButtonUp += (_, e) =>
+        {
+            e.Handled = true;
         };
 
         Content = _button;

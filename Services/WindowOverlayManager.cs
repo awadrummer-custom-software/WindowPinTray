@@ -22,6 +22,7 @@ internal sealed class WindowOverlayManager : IDisposable
     }
 
     private readonly SettingsService _settingsService;
+    private readonly ElevatedHelperService _elevatedHelperService;
     private readonly Dictionary<IntPtr, WindowPinController> _controllers = new();
     private readonly Dispatcher _dispatcher;
     private readonly DispatcherTimer _syncTimer;
@@ -42,6 +43,7 @@ internal sealed class WindowOverlayManager : IDisposable
     public WindowOverlayManager(SettingsService settingsService)
     {
         _settingsService = settingsService;
+        _elevatedHelperService = new ElevatedHelperService();
         _dispatcher = Dispatcher.CurrentDispatcher;
         _objectEventHandler = HandleObjectEvent;
         _systemEventHandler = HandleSystemEvent;
@@ -135,6 +137,8 @@ internal sealed class WindowOverlayManager : IDisposable
         _foregroundPollTimer.Stop();
         _movePollTimer.Stop();
         _positionPollTimer.Stop();
+
+        _elevatedHelperService.Dispose();
     }
 
     private void HandleObjectEvent(
@@ -327,7 +331,7 @@ internal sealed class WindowOverlayManager : IDisposable
             return;
         }
 
-        var controller = new WindowPinController(hwnd, _settings);
+        var controller = new WindowPinController(hwnd, _settings, _elevatedHelperService);
         _controllers[hwnd] = controller;
         controller.ApplyVisibility(true);
     }
