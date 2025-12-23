@@ -196,7 +196,7 @@ public partial class App : Application
         var insertAfter = cmd.IsPinned ? NativeMethods.HWND_TOPMOST : NativeMethods.HWND_NOTOPMOST;
 
         // Use SetWindowPos as the primary method for changing topmost state
-        var success = NativeMethods.SetWindowPos(
+        NativeMethods.SetWindowPos(
             hwnd,
             insertAfter,
             0,
@@ -208,36 +208,35 @@ public partial class App : Application
             | NativeMethods.SWP_NOACTIVATE
             | NativeMethods.SWP_FRAMECHANGED);
 
-        // For unpinning, if SetWindowPos didn't remove the bit (can happen with some system windows),
-        // force it via SetWindowLongPtr.
-        if (!cmd.IsPinned)
+        // Verify the state was actually applied
+        var exStyle = NativeMethods.GetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE).ToInt64();
+        var isNowTopmost = (exStyle & NativeMethods.WS_EX_TOPMOST) != 0;
+
+        if (cmd.IsPinned && !isNowTopmost)
         {
-            var exStyle = NativeMethods.GetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE).ToInt64();
-            if ((exStyle & NativeMethods.WS_EX_TOPMOST) != 0)
-            {
-                NativeMethods.SetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE, new IntPtr(exStyle & ~NativeMethods.WS_EX_TOPMOST));
-                
-                // Force a frame change to apply the style change
-                NativeMethods.SetWindowPos(
-                    hwnd,
-                    IntPtr.Zero,
-                    0, 0, 0, 0,
-                    NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE | 
-                    NativeMethods.SWP_NOZORDER | NativeMethods.SWP_FRAMECHANGED);
-                
-                // Verify if it's actually gone
-                var finalExStyle = NativeMethods.GetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE).ToInt64();
-                if ((finalExStyle & NativeMethods.WS_EX_TOPMOST) == 0)
-                {
-                    success = true;
-                }
-            }
+            // Pinning failed - return error so main app can try fallback
+            return Task.FromResult("ERROR:TOPMOST not applied");
         }
 
-        if (!success)
+        if (!cmd.IsPinned && isNowTopmost)
         {
-            var error = Marshal.GetLastWin32Error();
-            return Task.FromResult($"ERROR:SetWindowPos failed with {error}");
+            // Unpinning via SetWindowPos didn't work, try clearing the style bit directly
+            NativeMethods.SetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE, new IntPtr(exStyle & ~NativeMethods.WS_EX_TOPMOST));
+
+            // Force a frame change to apply the style change
+            NativeMethods.SetWindowPos(
+                hwnd,
+                IntPtr.Zero,
+                0, 0, 0, 0,
+                NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE |
+                NativeMethods.SWP_NOZORDER | NativeMethods.SWP_FRAMECHANGED);
+
+            // Verify again
+            var finalExStyle = NativeMethods.GetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE).ToInt64();
+            if ((finalExStyle & NativeMethods.WS_EX_TOPMOST) != 0)
+            {
+                return Task.FromResult("ERROR:TOPMOST not cleared");
+            }
         }
 
         return Task.FromResult("OK");

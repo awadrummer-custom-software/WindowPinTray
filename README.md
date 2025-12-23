@@ -11,18 +11,25 @@ To deploy the application after making changes:
    dotnet build -c Release
    ```
 
-2. **Kill any running instances:**
+2. **Sign both executables (required for ElevatedHelper UIAccess):**
+   ```powershell
+   $cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert | Select-Object -First 1
+   Set-AuthenticodeSignature -FilePath "bin\Release\net9.0-windows\WindowPinTray.exe" -Certificate $cert -TimestampServer "http://timestamp.digicert.com"
+   Set-AuthenticodeSignature -FilePath "bin\Release\net9.0-windows\WindowPinTray.ElevatedHelper.exe" -Certificate $cert -TimestampServer "http://timestamp.digicert.com"
+   ```
+
+3. **Kill any running instances (may require admin for ElevatedHelper):**
    ```
    taskkill /IM WindowPinTray.exe /F
    taskkill /IM WindowPinTray.ElevatedHelper.exe /F
    ```
 
-3. **Copy to Program Files (requires admin):**
+4. **Copy to Program Files (requires admin):**
    ```powershell
    Copy-Item -Path "bin\Release\net9.0-windows\*" -Destination "C:\Program Files\Window Pin Tray\" -Recurse -Force
    ```
 
-4. **Run the application from:**
+5. **Run the application from:**
    ```
    C:\Program Files\Window Pin Tray\WindowPinTray.exe
    ```
